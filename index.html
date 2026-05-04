@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>家族アルバム</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/15LePx07fTUUxxPSVC_OCJNZ-MKecBNwa">
+</head>
+<body>
+  <header>
+    <h1>家族アルバム</h1>
+  </header>
+
+  <nav class="tabs" id="main-tabs">
+    <div class="tab active" id="tab-create">作成</div>
+    <div class="tab" id="tab-view">一覧・閲覧</div>
+  </nav>
+
+  <main class="container">
+    <!-- 作成セクション -->
+    <section id="section-create" class="card">
+      <h3>新しいアルバムを作成</h3>
+      <input type="text" id="eventName" placeholder="例: 2026年 家族旅行">
+      <button id="btn-create">フォルダ作成</button>
+      <div id="create-msg" class="message" style="display:none;"></div>
+    </section>
+
+    <!-- 一覧セクション -->
+    <section id="section-view" style="display:none;">
+      <div id="album-list"></div>
+    </section>
+
+    <!-- 写真閲覧セクション -->
+    <section id="section-photos" style="display:none;">
+      <div class="album-header">
+        <button class="back-btn" id="btn-back">← 一覧に戻る</button>
+        <h3 id="current-album-name"></h3>
+      </div>
+      <div class="upload-area">
+        <label class="upload-label" for="file-upload">📷 写真を追加する</label>
+        <input id="file-upload" type="file" multiple accept="image/*" style="display:none;">
+        <div id="upload-status" class="message" style="display:none;"></div>
+      </div>
+      <div id="photo-grid" class="grid"></div>
+    </section>
+  </main>
+
+  <div id="loading" class="loading-overlay" style="display:none;">処理中...</div>
+
+  <script src="script.js"></script>
+</body>
+</html>
