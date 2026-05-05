@@ -15,29 +15,33 @@
     <h1>家族アルバム</h1>
   </header>
 
-  <nav class="tabs" id="main-tabs">
-    <div class="tab active" id="tab-create">作成</div>
-    <div class="tab" id="tab-view">一覧・閲覧</div>
-  </nav>
-
   <main class="container">
-    <!-- 作成セクション -->
-    <section id="section-create" class="card">
-      <h3>新しいアルバムを作成</h3>
-      <input type="text" id="eventName" placeholder="例: 2026年 家族旅行">
-      <button id="btn-create">フォルダ作成</button>
-      <div id="create-msg" class="message" style="display:none;"></div>
-    </section>
-
-    <!-- 一覧セクション -->
-    <section id="section-view" style="display:none;">
+    <!-- 1. アルバム一覧セクション（初期表示） -->
+    <section id="section-view">
       <div id="album-list"></div>
+      <div class="bottom-controls">
+        <button id="btn-show-create" class="btn-secondary">＋ 新しいアルバムを作成</button>
+      </div>
     </section>
 
-    <!-- 写真閲覧セクション -->
+    <!-- 2. アルバム作成セクション -->
+    <section id="section-create" style="display:none;">
+      <div class="card">
+        <div class="album-header">
+          <button class="back-btn" onclick="showSection('view')">← 戻る</button>
+          <h3>新規作成</h3>
+        </div>
+        <p class="guide-text">イベント名を入力してください</p>
+        <input type="text" id="eventName" placeholder="例: 2026年 家族旅行">
+        <button id="btn-create">フォルダを作成する</button>
+        <div id="create-msg" class="message" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- 3. 写真閲覧セクション -->
     <section id="section-photos" style="display:none;">
       <div class="album-header">
-        <button class="back-btn" id="btn-back">← 一覧に戻る</button>
+        <button class="back-btn" id="btn-back-to-list">← 一覧に戻る</button>
         <h3 id="current-album-name"></h3>
       </div>
       <div class="upload-area">
