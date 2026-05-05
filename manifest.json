@@ -9,7 +9,14 @@
     {
       "src": "https://lh3.googleusercontent.com/d/1fKKLtWircIxr1YO6YGRjto8KDL4EI1Sn",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://lh3.googleusercontent.com/d/1fKKLtWircIxr1YO6YGRjto8KDL4EI1Sn",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
