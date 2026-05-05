@@ -7,7 +7,7 @@
  * 3. 撮影日時（ファイル名）順のソート表示
  */
 
-const GAS_API_URL = 'ここにデプロイしたGASのWebアプリURL（末尾/exec）を貼り付けてください';
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwNiF9m2wALA9UtVf46zEaFRtvDsmtjJPP4FmwuMgVBLhTfUBbQQ-IfjqgXAdgxrmPEjw/exec';
 let currentFolderId = null;
 
 // HTML要素の定義
