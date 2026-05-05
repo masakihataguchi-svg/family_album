@@ -1,50 +1,37 @@
 /**
  * 家族アルバムアプリ - フロントエンド制御スクリプト
- * 
- * 機能:
- * 1. GAS APIとの通信 (アルバム取得、写真取得、アップロード、フォルダ作成)
- * 2. EXIF解析による写真リネーム (YYYYMMDD_HHMMSS.jpg)
- * 3. 撮影日時（ファイル名）順のソート表示
  */
 
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwNiF9m2wALA9UtVf46zEaFRtvDsmtjJPP4FmwuMgVBLhTfUBbQQ-IfjqgXAdgxrmPEjw/exec';
+// config.jsからURLを取得するように変更
+const GAS_API_URL = CONFIG.GAS_API_URL;
 let currentFolderId = null;
 
-// HTML要素の定義
 const sections = {
   view: document.getElementById('section-view'),
   create: document.getElementById('section-create'),
   photos: document.getElementById('section-photos')
 };
 
-// --- 初期化処理 ---
+// --- 初期化 ---
 window.onload = () => {
   showSection('view');
-  loadAlbums(); // 起動時にアルバム一覧を読み込む
+  loadAlbums();
 };
 
-// --- セクション切り替え ---
 function showSection(id) {
   Object.keys(sections).forEach(key => {
     sections[key].style.display = (key === id) ? 'block' : 'none';
   });
-  // 写真表示画面以外ではメインタブを表示（必要に応じて）
-  const tabs = document.getElementById('main-tabs');
-  if (tabs) tabs.style.display = (id === 'photos') ? 'none' : 'flex';
-  
   if (id === 'view') currentFolderId = null;
 }
 
-// --- 通信共通関数 (CORS/リダイレクト対応) ---
+// --- 通信共通関数 ---
 async function callApi(method, payload = null) {
   const options = {
     method: method,
-    redirect: 'follow' // GASの302リダイレクトを追跡
+    redirect: 'follow'
   };
-  
-  if (method === 'POST' && payload) {
-    options.body = JSON.stringify(payload);
-  }
+  if (method === 'POST' && payload) options.body = JSON.stringify(payload);
 
   try {
     const url = method === 'GET' && payload 
@@ -53,17 +40,16 @@ async function callApi(method, payload = null) {
 
     const response = await fetch(url, options);
     if (!response.ok) throw new Error(`HTTPエラー: ${response.status}`);
-    
     return await response.json();
   } catch (err) {
     console.error('API通信失敗:', err);
-    alert('通信に失敗しました。GASの設定（アクセス権限: 全員）を確認してください。\n' + err.message);
+    alert('通信に失敗しました。config.jsのURLと、GASのデプロイ設定を確認してください。');
     toggleLoading(false);
     return { success: false, error: err.message };
   }
 }
 
-// --- アルバム一覧の取得と表示 ---
+// --- アルバム一覧の取得 ---
 async function loadAlbums() {
   toggleLoading(true);
   const result = await callApi('GET', { action: 'getAlbums' });
@@ -77,9 +63,7 @@ async function loadAlbums() {
       list.innerHTML = '<p style="text-align:center; color:#70757a; padding:20px;">アルバムがまだありません</p>';
       return;
     }
-    // アルバム名でソート（Code.gs側でもソート済みだが念のため）
     result.data.sort((a, b) => b.name.localeCompare(a.name));
-    
     result.data.forEach(a => {
       const div = document.createElement('div');
       div.className = 'album-item';
@@ -90,7 +74,7 @@ async function loadAlbums() {
   }
 }
 
-// --- 写真一覧の取得と表示 (日付順) ---
+// --- 写真一覧の表示 ---
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
@@ -104,21 +88,13 @@ async function loadPhotos(id, name) {
   grid.innerHTML = '';
 
   if (result.success) {
-    if (result.data.length === 0) {
-      grid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; color:#70757a; padding:40px 0;">写真がありません</p>';
-      return;
-    }
-
-    // ファイル名（YYYYMMDD_HHMMSS）で昇順にソート
     result.data.sort((a, b) => a.name.localeCompare(b.name));
-
     result.data.forEach(p => {
       const img = document.createElement('img');
       img.src = p.viewUrl;
       img.loading = 'lazy';
       const card = document.createElement('div');
       card.className = 'photo-card';
-      // クリックで別タブで拡大表示（sz=w800を除去して元画像に近いサイズを狙う）
       card.onclick = () => window.open(p.viewUrl.replace('&sz=w800', ''));
       card.appendChild(img);
       grid.appendChild(card);
@@ -126,7 +102,7 @@ async function loadPhotos(id, name) {
   }
 }
 
-// --- アルバム作成処理 ---
+// --- アルバム作成 ---
 document.getElementById('btn-show-create').onclick = () => showSection('create');
 
 document.getElementById('btn-create').onclick = async () => {
@@ -139,19 +115,12 @@ document.getElementById('btn-create').onclick = async () => {
 
   if (result.success) {
     document.getElementById('eventName').value = '';
-    const msg = document.getElementById('create-msg');
-    msg.style.display = 'block';
-    msg.innerText = '作成しました！一覧に戻ります。';
-    
-    setTimeout(() => {
-      msg.style.display = 'none';
-      loadAlbums();
-      showSection('view');
-    }, 1500);
+    loadAlbums();
+    showSection('view');
   }
 };
 
-// --- 写真アップロード (EXIF解析リネーム付き) ---
+// --- アップロード (HEIC/EXIF対応) ---
 document.getElementById('file-upload').onchange = async (e) => {
   const files = e.target.files;
   if (!files.length) return;
@@ -165,21 +134,16 @@ document.getElementById('file-upload').onchange = async (e) => {
     status.innerText = `送信中... (${i + 1}/${files.length})`;
 
     try {
-      // 1. EXIFから撮影日時を取得してリネーム後のファイル名を生成
       const newFileName = await generateFileNameFromExif(file);
-
-      // 2. Base64化
       const base64Full = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      
       const [header, data] = base64Full.split(',');
       const mimeType = header.match(/:(.*?);/)[1];
       
-      // 3. GAS APIへ送信
       await callApi('POST', {
         action: 'upload',
         folderId: currentFolderId,
@@ -187,54 +151,31 @@ document.getElementById('file-upload').onchange = async (e) => {
         base64Data: data,
         mimeType: mimeType
       });
-    } catch (err) {
-      console.error('Upload Error:', err);
-      alert(`${file.name} のアップロードに失敗しました。`);
-    }
+    } catch (err) { console.error(err); }
   }
   
   status.innerText = 'アップロード完了 ✨';
   status.style.background = '#e6f4ea';
   setTimeout(() => { status.style.display = 'none'; }, 3000);
-  
-  // 表示を更新
   loadPhotos(currentFolderId, document.getElementById('current-album-name').innerText);
 };
 
-/**
- * EXIF.jsを使用して撮影日時を抽出し、リネーム用文字列を生成する
- * 形式: YYYYMMDD_HHMMSS.jpg
- */
-function generateFileNameFromExif(file) {
-  return new Promise((resolve) => {
-    // 拡張子を取得
-    const ext = file.name.split('.').pop().toLowerCase();
-    
-    // EXIF解析実行 (exif-jsライブラリを使用)
-    EXIF.getData(file, function() {
-      const dateTime = EXIF.getTag(this, "DateTimeOriginal");
-      let finalName;
+async function generateFileNameFromExif(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  try {
+    const data = await exifr.parse(file);
+    const dateTime = data ? data.DateTimeOriginal : null;
+    if (dateTime instanceof Date) {
+      const f = (n) => ("0" + n).slice(-2);
+      return `${dateTime.getFullYear()}${f(dateTime.getMonth()+1)}${f(dateTime.getDate())}_${f(dateTime.getHours())}${f(dateTime.getMinutes())}${f(dateTime.getSeconds())}.${ext}`;
+    }
+  } catch (err) { console.warn(err); }
 
-      if (dateTime) {
-        // EXIF形式 "2026:05:05 12:34:56" を "20260505_123456" に変換
-        finalName = dateTime.replace(/:/g, "").replace(" ", "_") + "." + ext;
-      } else {
-        // EXIFがない場合は現在のタイムスタンプを付与してファイル名の衝突を避ける
-        const now = new Date();
-        const ts = now.getFullYear() + 
-                   ("0" + (now.getMonth() + 1)).slice(-2) + 
-                   ("0" + now.getDate()).slice(-2) + "_" + 
-                   ("0" + now.getHours()).slice(-2) + 
-                   ("0" + now.getMinutes()).slice(-2) + 
-                   ("0" + now.getSeconds()).slice(-2);
-        finalName = ts + "_" + file.name;
-      }
-      resolve(finalName);
-    });
-  });
+  const fallbackDate = new Date(file.lastModified || Date.now());
+  const f = (n) => ("0" + n).slice(-2);
+  return `${fallbackDate.getFullYear()}${f(fallbackDate.getMonth()+1)}${f(fallbackDate.getDate())}_${f(fallbackDate.getHours())}${f(fallbackDate.getMinutes())}${f(fallbackDate.getSeconds())}_${file.name}`;
 }
 
-// 戻るボタンの挙動
 document.getElementById('btn-back-to-list').onclick = () => {
   showSection('view');
   loadAlbums();
