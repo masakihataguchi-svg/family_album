@@ -1,5 +1,5 @@
 // script.js
-const GAS_API_URL = 'ここにデプロイしたURL（末尾/exec）を貼り付け';
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxwgJ4HAJf0aoawNTAYRYJzTllnH6QSnYk3Ybr8pn5XVkFyOumUbXdtlLjgyiVuHjgKFQ/exec';
 let currentFolderId = null;
 
 // 要素取得
