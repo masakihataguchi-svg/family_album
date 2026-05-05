@@ -1,8 +1,4 @@
-/**
- * 家族アルバムアプリ - フロントエンド制御スクリプト
- */
-
-// config.jsからURLを取得するように変更
+// script.js
 const GAS_API_URL = CONFIG.GAS_API_URL;
 let currentFolderId = null;
 
@@ -12,7 +8,6 @@ const sections = {
   photos: document.getElementById('section-photos')
 };
 
-// --- 初期化 ---
 window.onload = () => {
   showSection('view');
   loadAlbums();
@@ -25,12 +20,8 @@ function showSection(id) {
   if (id === 'view') currentFolderId = null;
 }
 
-// --- 通信共通関数 ---
 async function callApi(method, payload = null) {
-  const options = {
-    method: method,
-    redirect: 'follow'
-  };
+  const options = { method: method, redirect: 'follow' };
   if (method === 'POST' && payload) options.body = JSON.stringify(payload);
 
   try {
@@ -40,16 +31,17 @@ async function callApi(method, payload = null) {
 
     const response = await fetch(url, options);
     if (!response.ok) throw new Error(`HTTPエラー: ${response.status}`);
-    return await response.json();
+    
+    const result = await response.json();
+    console.log('API Response:', result); 
+    return result;
   } catch (err) {
     console.error('API通信失敗:', err);
-    alert('通信に失敗しました。config.jsのURLと、GASのデプロイ設定を確認してください。');
-    toggleLoading(false);
-    return { success: false, error: err.message };
+    return { success: false, error: '通信に失敗しました: ' + err.message };
   }
 }
 
-// --- アルバム一覧の取得 ---
+// アルバム一覧取得
 async function loadAlbums() {
   toggleLoading(true);
   const result = await callApi('GET', { action: 'getAlbums' });
@@ -63,7 +55,6 @@ async function loadAlbums() {
       list.innerHTML = '<p style="text-align:center; color:#70757a; padding:20px;">アルバムがまだありません</p>';
       return;
     }
-    result.data.sort((a, b) => b.name.localeCompare(a.name));
     result.data.forEach(a => {
       const div = document.createElement('div');
       div.className = 'album-item';
@@ -71,10 +62,30 @@ async function loadAlbums() {
       div.onclick = () => loadPhotos(a.id, a.name);
       list.appendChild(div);
     });
+  } else {
+    alert('一覧の取得に失敗しました: ' + result.error);
   }
 }
 
-// --- 写真一覧の表示 ---
+// アルバム作成
+document.getElementById('btn-create').onclick = async () => {
+  const name = document.getElementById('eventName').value;
+  if (!name) return alert('名前を入力してください');
+  
+  toggleLoading(true);
+  const result = await callApi('POST', { action: 'createFolder', name: name });
+  toggleLoading(false); // 通信完了後に必ず解除
+
+  if (result.success === true) {
+    document.getElementById('eventName').value = '';
+    await loadAlbums();
+    showSection('view');
+  } else {
+    alert('アルバム作成に失敗しました:\n' + (result.error || '不明なエラー'));
+  }
+};
+
+// 写真表示
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
@@ -88,7 +99,6 @@ async function loadPhotos(id, name) {
   grid.innerHTML = '';
 
   if (result.success) {
-    result.data.sort((a, b) => a.name.localeCompare(b.name));
     result.data.forEach(p => {
       const img = document.createElement('img');
       img.src = p.viewUrl;
@@ -102,25 +112,7 @@ async function loadPhotos(id, name) {
   }
 }
 
-// --- アルバム作成 ---
-document.getElementById('btn-show-create').onclick = () => showSection('create');
-
-document.getElementById('btn-create').onclick = async () => {
-  const name = document.getElementById('eventName').value;
-  if (!name) return alert('アルバム名を入力してください');
-  
-  toggleLoading(true);
-  const result = await callApi('POST', { action: 'createFolder', name: name });
-  toggleLoading(false);
-
-  if (result.success) {
-    document.getElementById('eventName').value = '';
-    loadAlbums();
-    showSection('view');
-  }
-};
-
-// --- アップロード (HEIC/EXIF対応) ---
+// アップロード処理 (EXIFリネーム付き)
 document.getElementById('file-upload').onchange = async (e) => {
   const files = e.target.files;
   if (!files.length) return;
@@ -153,13 +145,13 @@ document.getElementById('file-upload').onchange = async (e) => {
       });
     } catch (err) { console.error(err); }
   }
-  
-  status.innerText = 'アップロード完了 ✨';
+  status.innerText = '完了！';
   status.style.background = '#e6f4ea';
   setTimeout(() => { status.style.display = 'none'; }, 3000);
   loadPhotos(currentFolderId, document.getElementById('current-album-name').innerText);
 };
 
+// EXIFリネーム用
 async function generateFileNameFromExif(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   try {
@@ -170,17 +162,13 @@ async function generateFileNameFromExif(file) {
       return `${dateTime.getFullYear()}${f(dateTime.getMonth()+1)}${f(dateTime.getDate())}_${f(dateTime.getHours())}${f(dateTime.getMinutes())}${f(dateTime.getSeconds())}.${ext}`;
     }
   } catch (err) { console.warn(err); }
-
   const fallbackDate = new Date(file.lastModified || Date.now());
   const f = (n) => ("0" + n).slice(-2);
   return `${fallbackDate.getFullYear()}${f(fallbackDate.getMonth()+1)}${f(fallbackDate.getDate())}_${f(fallbackDate.getHours())}${f(fallbackDate.getMinutes())}${f(fallbackDate.getSeconds())}_${file.name}`;
 }
 
-document.getElementById('btn-back-to-list').onclick = () => {
-  showSection('view');
-  loadAlbums();
-};
-
+document.getElementById('btn-back-to-list').onclick = () => showSection('view');
+document.getElementById('btn-show-create').onclick = () => showSection('create');
 function toggleLoading(show) { 
   document.getElementById('loading').style.display = show ? 'flex' : 'none'; 
 }
