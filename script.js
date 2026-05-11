@@ -2,6 +2,15 @@
 const GAS_API_URL = CONFIG.GAS_API_URL;
 let currentFolderId = null;
 
+// PhotoSwipeライブラリの初期化
+import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
+const lightbox = new PhotoSwipeLightbox({
+  gallery: '#photo-grid',
+  children: 'a',
+  pswpModule: () => import('https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe.esm.min.js')
+});
+lightbox.init();
+
 const sections = {
   view: document.getElementById('section-view'),
   create: document.getElementById('section-create'),
@@ -17,28 +26,21 @@ function showSection(id) {
   Object.keys(sections).forEach(key => {
     sections[key].style.display = (key === id) ? 'block' : 'none';
   });
-  if (id === 'view') currentFolderId = null;
 }
 
 async function callApi(method, payload = null) {
   const options = { method: method, redirect: 'follow' };
   if (method === 'POST' && payload) options.body = JSON.stringify(payload);
-
   try {
-    const url = method === 'GET' && payload 
-      ? `${GAS_API_URL}?${new URLSearchParams(payload)}` 
-      : GAS_API_URL;
-
+    const url = method === 'GET' && payload ? `${GAS_API_URL}?${new URLSearchParams(payload)}` : GAS_API_URL;
     const response = await fetch(url, options);
-    const result = await response.json();
-    return result;
+    return await response.json();
   } catch (err) {
     console.error('API通信失敗:', err);
     return { success: false, error: err.message };
   }
 }
 
-// 一覧表示
 async function loadAlbums() {
   toggleLoading(true);
   const result = await callApi('GET', { action: 'getAlbums' });
@@ -56,20 +58,17 @@ async function loadAlbums() {
   }
 }
 
-// 写真とメモの表示
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
   document.getElementById('current-album-name').innerText = name;
-  document.getElementById('album-memo').value = ""; // リセット
+  document.getElementById('album-memo').value = "";
   document.getElementById('memo-status').innerText = "";
   
   toggleLoading(true);
-  // メモの読み込み
   const memoRes = await callApi('GET', { action: 'getMemo', folderId: id });
   if (memoRes.success) document.getElementById('album-memo').value = memoRes.data || "";
 
-  // 写真の読み込み
   const photoRes = await callApi('GET', { action: 'getPhotos', folderId: id });
   toggleLoading(false);
 
@@ -77,29 +76,31 @@ async function loadPhotos(id, name) {
   grid.innerHTML = '';
   if (photoRes.success) {
     photoRes.data.forEach(p => {
+      // PhotoSwipe用に <a> タグでラップする
+      const fullUrl = p.viewUrl.replace('&sz=w800', '');
+      const a = document.createElement('a');
+      a.href = fullUrl;
+      a.setAttribute('data-pswp-width', '1600'); // 仮のサイズ
+      a.setAttribute('data-pswp-height', '1200');
+      a.target = '_blank';
+      
       const img = document.createElement('img');
       img.src = p.viewUrl;
-      const card = document.createElement('div');
-      card.className = 'photo-card';
-      card.onclick = () => window.open(p.viewUrl.replace('&sz=w800', ''));
-      card.appendChild(img);
-      grid.appendChild(card);
+      img.loading = 'lazy';
+      
+      a.appendChild(img);
+      grid.appendChild(a);
     });
   }
 }
 
-// 追記：メモの保存
+// メモ保存
 document.getElementById('btn-save-memo').onclick = async () => {
-  const memo = document.getElementById('album-memo').value;
   const status = document.getElementById('memo-status');
   status.innerText = "保存中...";
-  const result = await callApi('POST', { action: 'saveMemo', folderId: currentFolderId, memo: memo });
-  if (result.success) {
-    status.innerText = "保存しました ✨";
-    setTimeout(() => status.innerText = "", 2000);
-  } else {
-    status.innerText = "保存に失敗しました";
-  }
+  const result = await callApi('POST', { action: 'saveMemo', folderId: currentFolderId, memo: document.getElementById('album-memo').value });
+  status.innerText = result.success ? "保存しました ✨" : "失敗しました";
+  setTimeout(() => status.innerText = "", 2000);
 };
 
 // アルバム作成
