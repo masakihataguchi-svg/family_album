@@ -1,12 +1,12 @@
 /**
  * 家族アルバムアプリ - フロントエンド制御スクリプト
+ * 修正内容: 変数名エラー(result -> photoRes)の修正、ロード画面解除のタイミング改善
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
 const GAS_API_URL = CONFIG.GAS_API_URL;
 let currentFolderId = null;
 
-// PhotoSwipe初期化
 const lightbox = new PhotoSwipeLightbox({
   gallery: '#photo-grid',
   children: 'a',
@@ -76,47 +76,53 @@ async function loadPhotos(id, name) {
   document.getElementById('album-memo').value = "";
   
   toggleLoading(true);
-  const memoRes = await callApi('GET', { action: 'getMemo', folderId: id });
-  if (memoRes.success) document.getElementById('album-memo').value = memoRes.data || "";
-
-  const photoRes = await callApi('GET', { action: 'getPhotos', folderId: id });
   
-  const grid = document.getElementById('photo-grid');
-  grid.innerHTML = '';
+  try {
+    const memoRes = await callApi('GET', { action: 'getMemo', folderId: id });
+    if (memoRes.success) document.getElementById('album-memo').value = memoRes.data || "";
 
-  if (photoRes.success) {
-    const imageLoadPromises = [];
+    const photoRes = await callApi('GET', { action: 'getPhotos', folderId: id });
+    
+    // データが取得できたらすぐにロード画面を消す
+    toggleLoading(false);
 
-    photoRes.data.forEach(p => {
-      const promise = new Promise((resolve) => {
-        // 【修正ポイント】拡大用URLに w1600 を指定。これでアスペクト比が維持されます。
+    const grid = document.getElementById('photo-grid');
+    grid.innerHTML = '';
+
+    if (photoRes.success) {
+      if (photoRes.data.length === 0) { // 変数名を photoRes に修正
+        grid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; color:#70757a; padding:40px 0;">写真がありません</p>';
+        return;
+      }
+
+      photoRes.data.sort((a, b) => a.name.localeCompare(b.name));
+
+      photoRes.data.forEach(p => {
         const fullUrl = p.viewUrl.replace('&sz=w800', '&sz=w1600');
-        
         const a = document.createElement('a');
         a.href = fullUrl;
         a.target = '_blank';
+        
+        // 初期サイズを設定（アスペクト比読み込み前の仮置き）
+        a.setAttribute('data-pswp-width', '1200');
+        a.setAttribute('data-pswp-height', '1200');
 
         const img = document.createElement('img');
-        img.src = p.viewUrl; // サムネイルは w800
+        img.src = p.viewUrl;
         img.loading = 'lazy';
         
         img.onload = () => {
-          // サムネイルの縦横比をそのまま拡大枠に適用
-          a.setAttribute('data-pswp-width', img.naturalWidth * 2); // 1600px相当に計算
+          // 画像が読み込まれた瞬間に正しいアスペクト比に更新
+          a.setAttribute('data-pswp-width', img.naturalWidth * 2);
           a.setAttribute('data-pswp-height', img.naturalHeight * 2);
-          resolve();
         };
-        img.onerror = resolve;
 
         a.appendChild(img);
         grid.appendChild(a);
       });
-      imageLoadPromises.push(promise);
-    });
-
-    await Promise.all(imageLoadPromises);
-    toggleLoading(false);
-  } else {
+    }
+  } catch (e) {
+    console.error(e);
     toggleLoading(false);
   }
 }
@@ -153,7 +159,7 @@ document.getElementById('file-upload').onchange = async (e) => {
     const [header, data] = base64Full.split(',');
     await callApi('POST', { action: 'upload', folderId: currentFolderId, fileName: newFileName, base64Data: data, mimeType: header.match(/:(.*?);/)[1] });
   }
-  status.innerText = 'アップロード完了 ✨';
+  status.innerText = '完了';
   setTimeout(() => status.style.display = 'none', 2000);
   loadPhotos(currentFolderId, document.getElementById('current-album-name').innerText);
 };
