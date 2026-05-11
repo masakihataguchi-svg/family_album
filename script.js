@@ -1,7 +1,3 @@
-/**
- * 家族アルバムアプリ - フロントエンド制御スクリプト
- * 修正内容: 変数名エラー(result -> photoRes)の修正、ロード画面解除のタイミング改善
- */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
 const GAS_API_URL = CONFIG.GAS_API_URL;
@@ -27,16 +23,10 @@ window.onload = () => {
 
 document.getElementById('btn-show-create').onclick = () => showSection('create');
 document.getElementById('btn-back-from-create').onclick = () => showSection('view');
-document.getElementById('btn-back-to-list').onclick = () => {
-  showSection('view');
-  loadAlbums();
-};
+document.getElementById('btn-back-to-list').onclick = () => { showSection('view'); loadAlbums(); };
 
 function showSection(id) {
-  Object.keys(sections).forEach(key => {
-    sections[key].style.display = (key === id) ? 'block' : 'none';
-  });
-  if (id === 'view') currentFolderId = null;
+  Object.keys(sections).forEach(key => sections[key].style.display = (key === id) ? 'block' : 'none');
 }
 
 async function callApi(method, payload = null) {
@@ -53,76 +43,76 @@ async function callApi(method, payload = null) {
 }
 
 async function loadAlbums() {
-  toggleLoading(true);
+  toggleLoading(true, "アルバム一覧を取得中...");
   const result = await callApi('GET', { action: 'getAlbums' });
-  toggleLoading(false);
-  const list = document.getElementById('album-list');
-  list.innerHTML = '';
   if (result.success) {
+    const list = document.getElementById('album-list');
+    list.innerHTML = '';
     result.data.forEach(a => {
       const div = document.createElement('div');
       div.className = 'album-item';
-      div.innerHTML = `<span class="album-name">📂 ${a.name}</span>▶`;
+      div.innerHTML = `<span>📂 ${a.name}</span>▶`;
       div.onclick = () => loadPhotos(a.id, a.name);
       list.appendChild(div);
     });
+    toggleLoading(false);
+  } else {
+    toggleLoading(true, "エラー: " + result.error);
   }
 }
 
+// --- ここでフリーズ箇所を特定します ---
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
   document.getElementById('current-album-name').innerText = name;
-  document.getElementById('album-memo').value = "";
   
-  toggleLoading(true);
-  
-  try {
-    const memoRes = await callApi('GET', { action: 'getMemo', folderId: id });
-    if (memoRes.success) document.getElementById('album-memo').value = memoRes.data || "";
+  // ステップ1: メモの取得開始
+  toggleLoading(true, "[1/4] メモを取得しています...");
+  const memoRes = await callApi('GET', { action: 'getMemo', folderId: id });
+  if (memoRes.success) document.getElementById('album-memo').value = memoRes.data || "";
 
-    const photoRes = await callApi('GET', { action: 'getPhotos', folderId: id });
+  // ステップ2: 写真リストの取得開始
+  toggleLoading(true, "[2/4] 写真リストを取得中...");
+  const photoRes = await callApi('GET', { action: 'getPhotos', folderId: id });
+  
+  if (!photoRes.success) {
+    toggleLoading(true, "エラー: 写真の取得に失敗しました");
+    return;
+  }
+
+  // ステップ3: データの解析とソート
+  toggleLoading(true, "[3/4] データを解析・ソート中...");
+  const grid = document.getElementById('photo-grid');
+  grid.innerHTML = '';
+  
+  if (photoRes.data && photoRes.data.length > 0) {
+    photoRes.data.sort((a, b) => a.name.localeCompare(b.name));
+
+    // ステップ4: 画像要素の生成
+    toggleLoading(true, "[4/4] 画像を画面に配置中...");
+    photoRes.data.forEach(p => {
+      const fullUrl = p.viewUrl.replace('&sz=w800', '&sz=w1600');
+      const a = document.createElement('a');
+      a.href = fullUrl;
+      a.setAttribute('data-pswp-width', '1200'); // 仮
+      a.setAttribute('data-pswp-height', '1200'); // 仮
+
+      const img = document.createElement('img');
+      img.src = p.viewUrl;
+      img.loading = 'lazy';
+      img.onload = () => {
+        a.setAttribute('data-pswp-width', img.naturalWidth * 2);
+        a.setAttribute('data-pswp-height', img.naturalHeight * 2);
+      };
+      a.appendChild(img);
+      grid.appendChild(a);
+    });
     
-    // データが取得できたらすぐにロード画面を消す
+    // 全工程完了
     toggleLoading(false);
-
-    const grid = document.getElementById('photo-grid');
-    grid.innerHTML = '';
-
-    if (photoRes.success) {
-      if (photoRes.data.length === 0) { // 変数名を photoRes に修正
-        grid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; color:#70757a; padding:40px 0;">写真がありません</p>';
-        return;
-      }
-
-      photoRes.data.sort((a, b) => a.name.localeCompare(b.name));
-
-      photoRes.data.forEach(p => {
-        const fullUrl = p.viewUrl.replace('&sz=w800', '&sz=w1600');
-        const a = document.createElement('a');
-        a.href = fullUrl;
-        a.target = '_blank';
-        
-        // 初期サイズを設定（アスペクト比読み込み前の仮置き）
-        a.setAttribute('data-pswp-width', '1200');
-        a.setAttribute('data-pswp-height', '1200');
-
-        const img = document.createElement('img');
-        img.src = p.viewUrl;
-        img.loading = 'lazy';
-        
-        img.onload = () => {
-          // 画像が読み込まれた瞬間に正しいアスペクト比に更新
-          a.setAttribute('data-pswp-width', img.naturalWidth * 2);
-          a.setAttribute('data-pswp-height', img.naturalHeight * 2);
-        };
-
-        a.appendChild(img);
-        grid.appendChild(a);
-      });
-    }
-  } catch (e) {
-    console.error(e);
+  } else {
+    grid.innerHTML = '<p style="text-align:center; padding:20px;">写真がありません</p>';
     toggleLoading(false);
   }
 }
@@ -138,13 +128,14 @@ document.getElementById('btn-save-memo').onclick = async () => {
 document.getElementById('btn-create').onclick = async () => {
   const name = document.getElementById('eventName').value;
   if (!name) return;
-  toggleLoading(true);
+  toggleLoading(true, "フォルダを作成中...");
   const result = await callApi('POST', { action: 'createFolder', name: name });
-  toggleLoading(false);
   if (result.success) {
     document.getElementById('eventName').value = '';
     loadAlbums();
     showSection('view');
+  } else {
+    toggleLoading(true, "作成エラー: " + result.error);
   }
 };
 
@@ -179,6 +170,10 @@ async function generateFileNameFromExif(file) {
   return `${d.getFullYear()}${f(d.getMonth()+1)}${f(d.getDate())}_${f(d.getHours())}${f(d.getMinutes())}${f(d.getSeconds())}_${file.name}`;
 }
 
-function toggleLoading(show) { 
-  document.getElementById('loading').style.display = show ? 'flex' : 'none'; 
+// 修正：引数にテキストを受け取れるように
+function toggleLoading(show, text = "処理中...") { 
+  const overlay = document.getElementById('loading');
+  const textEl = document.getElementById('loading-text');
+  if (textEl) textEl.innerText = text;
+  overlay.style.display = show ? 'flex' : 'none'; 
 }
