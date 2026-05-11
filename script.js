@@ -1,6 +1,6 @@
 /**
  * 家族アルバムアプリ - script.js
- * アスペクト比修正 & メタタグ警告対応版
+ * Androidフリーズ対策(非同期ロード) & アスペクト比完全修正版
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
@@ -41,7 +41,6 @@ async function callApi(method, payload = null) {
     const response = await fetch(url, options);
     return await response.json();
   } catch (err) {
-    console.error('API失敗:', err);
     return { success: false, error: err.message };
   }
 }
@@ -71,51 +70,54 @@ async function loadPhotos(id, name) {
   document.getElementById('current-album-name').innerText = name;
   
   toggleLoading(true, "データを取得中...");
+  
+  // メモの取得（非同期で並行して行わないことで負荷を抑える）
   const memoRes = await callApi('GET', { action: 'getMemo', folderId: id });
   if (memoRes.success) document.getElementById('album-memo').value = memoRes.data || "";
 
+  // 写真リストの取得
   const photoRes = await callApi('GET', { action: 'getPhotos', folderId: id });
   
+  // リストが届いたらすぐにロード画面を消す（Androidのフリーズ防止）
+  toggleLoading(false);
+
   const grid = document.getElementById('photo-grid');
   grid.innerHTML = '';
   
   if (photoRes.success && photoRes.data.length > 0) {
-    toggleLoading(true, "写真を整列中...");
+    // ファイル名で時系列ソート
     photoRes.data.sort((a, b) => a.name.localeCompare(b.name));
 
-    const promises = photoRes.data.map(p => {
-      return new Promise((resolve) => {
-        const fullUrl = p.viewUrl.replace('&sz=w800', '&sz=w1600');
-        const a = document.createElement('a');
-        a.href = fullUrl;
-        
-        const img = document.createElement('img');
-        img.src = p.viewUrl;
-        img.loading = 'lazy';
+    photoRes.data.forEach(p => {
+      // 拡大用は w1600 を指定（アスペクト比維持のため）
+      const fullUrl = p.viewUrl.replace(/&sz=w\d+/, '&sz=w1600');
+      const thumbUrl = p.viewUrl.replace(/&sz=w\d+/, '&sz=w400'); // サムネイルは軽量化
 
-        // 【改善】decode()を使用して、画像データの解析が終わってから属性をセット
-        img.decode().then(() => {
+      const a = document.createElement('a');
+      a.href = fullUrl;
+      
+      const img = document.createElement('img');
+      img.src = thumbUrl;
+      img.loading = 'lazy';
+
+      // 【アスペクト比修正の核心】
+      // 画像が読み込まれたらその画像の本来のサイズをPhotoSwipeに伝える
+      img.onload = () => {
+        if (img.naturalWidth > 0) {
           a.setAttribute('data-pswp-width', img.naturalWidth);
           a.setAttribute('data-pswp-height', img.naturalHeight);
-          resolve();
-        }).catch(() => {
-          // 失敗した場合はデフォルト
-          a.setAttribute('data-pswp-width', '1200');
-          a.setAttribute('data-pswp-height', '1200');
-          resolve();
-        });
+        }
+      };
 
-        a.appendChild(img);
-        grid.appendChild(a);
-      });
+      // デフォルト値（読み込み失敗時用）
+      a.setAttribute('data-pswp-width', '1200');
+      a.setAttribute('data-pswp-height', '1200');
+
+      a.appendChild(img);
+      grid.appendChild(a);
     });
-
-    // すべての画像のアスペクト比の準備ができたら表示（一瞬で終わります）
-    await Promise.all(promises);
-    toggleLoading(false);
-  } else {
+  } else if (photoRes.success) {
     grid.innerHTML = '<p style="text-align:center; padding:20px;">写真がありません</p>';
-    toggleLoading(false);
   }
 }
 
