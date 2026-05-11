@@ -30,79 +30,55 @@ async function callApi(method, payload = null) {
       : GAS_API_URL;
 
     const response = await fetch(url, options);
-    if (!response.ok) throw new Error(`HTTPエラー: ${response.status}`);
-    
     const result = await response.json();
-    console.log('API Response:', result); 
     return result;
   } catch (err) {
     console.error('API通信失敗:', err);
-    return { success: false, error: '通信に失敗しました: ' + err.message };
+    return { success: false, error: err.message };
   }
 }
 
-// アルバム一覧取得
+// 一覧表示
 async function loadAlbums() {
   toggleLoading(true);
   const result = await callApi('GET', { action: 'getAlbums' });
   toggleLoading(false);
-
   const list = document.getElementById('album-list');
   list.innerHTML = '';
-
   if (result.success) {
-    if (result.data.length === 0) {
-      list.innerHTML = '<p style="text-align:center; color:#70757a; padding:20px;">アルバムがまだありません</p>';
-      return;
-    }
     result.data.forEach(a => {
       const div = document.createElement('div');
       div.className = 'album-item';
-      div.innerHTML = `<span class="album-name">📂 ${a.name}</span><span class="arrow">▶</span>`;
+      div.innerHTML = `<span class="album-name">📂 ${a.name}</span>▶`;
       div.onclick = () => loadPhotos(a.id, a.name);
       list.appendChild(div);
     });
-  } else {
-    alert('一覧の取得に失敗しました: ' + result.error);
   }
 }
 
-// アルバム作成
-document.getElementById('btn-create').onclick = async () => {
-  const name = document.getElementById('eventName').value;
-  if (!name) return alert('名前を入力してください');
-  
-  toggleLoading(true);
-  const result = await callApi('POST', { action: 'createFolder', name: name });
-  toggleLoading(false); // 通信完了後に必ず解除
-
-  if (result.success === true) {
-    document.getElementById('eventName').value = '';
-    await loadAlbums();
-    showSection('view');
-  } else {
-    alert('アルバム作成に失敗しました:\n' + (result.error || '不明なエラー'));
-  }
-};
-
-// 写真表示
+// 写真とメモの表示
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
   document.getElementById('current-album-name').innerText = name;
+  document.getElementById('album-memo').value = ""; // リセット
+  document.getElementById('memo-status').innerText = "";
   
   toggleLoading(true);
-  const result = await callApi('GET', { action: 'getPhotos', folderId: id });
+  // メモの読み込み
+  const memoRes = await callApi('GET', { action: 'getMemo', folderId: id });
+  if (memoRes.success) document.getElementById('album-memo').value = memoRes.data || "";
+
+  // 写真の読み込み
+  const photoRes = await callApi('GET', { action: 'getPhotos', folderId: id });
   toggleLoading(false);
 
   const grid = document.getElementById('photo-grid');
   grid.innerHTML = '';
-
-  if (result.success) {
-    result.data.forEach(p => {
+  if (photoRes.success) {
+    photoRes.data.forEach(p => {
       const img = document.createElement('img');
       img.src = p.viewUrl;
-      img.loading = 'lazy';
       const card = document.createElement('div');
       card.className = 'photo-card';
       card.onclick = () => window.open(p.viewUrl.replace('&sz=w800', ''));
@@ -112,63 +88,66 @@ async function loadPhotos(id, name) {
   }
 }
 
-// アップロード処理 (EXIFリネーム付き)
+// 追記：メモの保存
+document.getElementById('btn-save-memo').onclick = async () => {
+  const memo = document.getElementById('album-memo').value;
+  const status = document.getElementById('memo-status');
+  status.innerText = "保存中...";
+  const result = await callApi('POST', { action: 'saveMemo', folderId: currentFolderId, memo: memo });
+  if (result.success) {
+    status.innerText = "保存しました ✨";
+    setTimeout(() => status.innerText = "", 2000);
+  } else {
+    status.innerText = "保存に失敗しました";
+  }
+};
+
+// アルバム作成
+document.getElementById('btn-create').onclick = async () => {
+  const name = document.getElementById('eventName').value;
+  if (!name) return;
+  toggleLoading(true);
+  const result = await callApi('POST', { action: 'createFolder', name: name });
+  toggleLoading(false);
+  if (result.success) {
+    document.getElementById('eventName').value = '';
+    await loadAlbums();
+    showSection('view');
+  }
+};
+
+// アップロード
 document.getElementById('file-upload').onchange = async (e) => {
   const files = e.target.files;
-  if (!files.length) return;
-  
   const status = document.getElementById('upload-status');
   status.style.display = 'block';
-  status.style.background = '#fff3cd';
-
   for (let i = 0; i < files.length; i++) {
-    const file = files[i];
     status.innerText = `送信中... (${i + 1}/${files.length})`;
-
-    try {
-      const newFileName = await generateFileNameFromExif(file);
-      const base64Full = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const [header, data] = base64Full.split(',');
-      const mimeType = header.match(/:(.*?);/)[1];
-      
-      await callApi('POST', {
-        action: 'upload',
-        folderId: currentFolderId,
-        fileName: newFileName,
-        base64Data: data,
-        mimeType: mimeType
-      });
-    } catch (err) { console.error(err); }
+    const newFileName = await generateFileNameFromExif(files[i]);
+    const base64Full = await new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(files[i]); });
+    const [header, data] = base64Full.split(',');
+    await callApi('POST', { action: 'upload', folderId: currentFolderId, fileName: newFileName, base64Data: data, mimeType: header.match(/:(.*?);/)[1] });
   }
-  status.innerText = '完了！';
-  status.style.background = '#e6f4ea';
-  setTimeout(() => { status.style.display = 'none'; }, 3000);
+  status.innerText = '完了';
+  setTimeout(() => status.style.display = 'none', 2000);
   loadPhotos(currentFolderId, document.getElementById('current-album-name').innerText);
 };
 
-// EXIFリネーム用
 async function generateFileNameFromExif(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   try {
     const data = await exifr.parse(file);
-    const dateTime = data ? data.DateTimeOriginal : null;
-    if (dateTime instanceof Date) {
+    if (data && data.DateTimeOriginal) {
+      const d = data.DateTimeOriginal;
       const f = (n) => ("0" + n).slice(-2);
-      return `${dateTime.getFullYear()}${f(dateTime.getMonth()+1)}${f(dateTime.getDate())}_${f(dateTime.getHours())}${f(dateTime.getMinutes())}${f(dateTime.getSeconds())}.${ext}`;
+      return `${d.getFullYear()}${f(d.getMonth()+1)}${f(d.getDate())}_${f(d.getHours())}${f(d.getMinutes())}${f(d.getSeconds())}.${ext}`;
     }
-  } catch (err) { console.warn(err); }
-  const fallbackDate = new Date(file.lastModified || Date.now());
+  } catch (e) {}
+  const d = new Date(file.lastModified || Date.now());
   const f = (n) => ("0" + n).slice(-2);
-  return `${fallbackDate.getFullYear()}${f(fallbackDate.getMonth()+1)}${f(fallbackDate.getDate())}_${f(fallbackDate.getHours())}${f(fallbackDate.getMinutes())}${f(fallbackDate.getSeconds())}_${file.name}`;
+  return `${d.getFullYear()}${f(d.getMonth()+1)}${f(d.getDate())}_${f(d.getHours())}${f(d.getMinutes())}${f(d.getSeconds())}_${file.name}`;
 }
 
 document.getElementById('btn-back-to-list').onclick = () => showSection('view');
 document.getElementById('btn-show-create').onclick = () => showSection('create');
-function toggleLoading(show) { 
-  document.getElementById('loading').style.display = show ? 'flex' : 'none'; 
-}
+function toggleLoading(show) { document.getElementById('loading').style.display = show ? 'flex' : 'none'; }
