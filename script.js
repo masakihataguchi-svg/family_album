@@ -1,5 +1,6 @@
 /**
  * 家族アルバムアプリ - script.js
+ * 機能追加: Pull-to-refresh, キャッシュバスター対応
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
@@ -8,7 +9,7 @@ let currentFolderId = null;
 
 const lightbox = new PhotoSwipeLightbox({
   gallery: '#photo-grid',
-  children: 'a.pswp-link', // クラス指定でボタンとの干渉を避ける
+  children: 'a.pswp-link',
   pswpModule: () => import('https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe.esm.min.js')
 });
 lightbox.init();
@@ -19,10 +20,65 @@ const sections = {
   photos: document.getElementById('section-photos')
 };
 
+// --- Pull-to-refresh用変数 ---
+let touchStart = 0;
+let pullDistance = 0;
+const threshold = 80; // 更新が実行される閾値(px)
+const container = document.getElementById('main-container');
+const pullIndicator = document.getElementById('pull-indicator');
+const arrow = pullIndicator.querySelector('.arrow-icon');
+const spinner = pullIndicator.querySelector('.refresh-spinner');
+
 window.onload = () => {
   showSection('view');
   loadAlbums();
+  initPullToRefresh();
 };
+
+// --- 引っ張って更新のロジック ---
+function initPullToRefresh() {
+  window.addEventListener('touchstart', e => {
+    // 画面の一番上にいる時だけ有効にする
+    if (window.scrollY === 0) touchStart = e.touches[0].pageY;
+  }, { passive: true });
+
+  window.addEventListener('touchmove', e => {
+    if (touchStart === 0 || window.scrollY > 0) return;
+    
+    const touchY = e.touches[0].pageY;
+    pullDistance = Math.max(0, (touchY - touchStart) * 0.4); // 40%の重みで引っ張る感触を出す
+
+    if (pullDistance > 0) {
+      container.style.transform = `translateY(${pullDistance}px)`;
+      pullIndicator.style.transform = `translateY(${pullDistance}px)`;
+      arrow.style.transform = `rotate(${Math.min(180, (pullDistance/threshold)*180)}deg)`;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchend', async () => {
+    if (pullDistance >= threshold && sections.view.style.display !== 'none') {
+      // 更新実行
+      arrow.style.display = 'none';
+      spinner.style.display = 'block';
+      await loadAlbums();
+      setTimeout(() => { resetPull(); }, 500);
+    } else {
+      resetPull();
+    }
+    touchStart = 0;
+    pullDistance = 0;
+  });
+}
+
+function resetPull() {
+  container.style.transform = '';
+  pullIndicator.style.transform = '';
+  setTimeout(() => {
+    arrow.style.display = 'block';
+    spinner.style.display = 'none';
+    arrow.style.transform = '';
+  }, 200);
+}
 
 document.getElementById('btn-show-create').onclick = () => showSection('create');
 document.getElementById('btn-back-from-create').onclick = () => showSection('view');
@@ -50,11 +106,16 @@ async function loadAlbums() {
   if (result.success) {
     const list = document.getElementById('album-list');
     list.innerHTML = '';
+    
+    // 【重要】キャッシュ対策：URLに現在時刻を付与する
+    const time = new Date().getTime();
+
     result.data.forEach(a => {
       const card = document.createElement('div');
       card.className = 'album-card';
-      const coverHtml = a.coverUrl 
-        ? `<div class="album-cover" style="background-image: url('${a.coverUrl}')"></div>`
+      const coverUrl = a.coverUrl ? `${a.coverUrl}&t=${time}` : null;
+      const coverHtml = coverUrl 
+        ? `<div class="album-cover" style="background-image: url('${coverUrl}')"></div>`
         : `<div class="album-cover">📂</div>`;
       card.innerHTML = `${coverHtml}<div class="album-info"><span class="album-name">${a.name}</span></div>`;
       card.onclick = () => loadPhotos(a.id, a.name);
@@ -87,12 +148,10 @@ async function loadPhotos(id, name) {
     photoRes.data.forEach(p => {
       const photoItem = document.createElement('div');
       photoItem.className = 'photo-item';
-
       const fullUrl = p.viewUrl.replace(/&sz=w\d+/, '&sz=w1600');
       const a = document.createElement('a');
       a.href = fullUrl;
       a.className = 'pswp-link';
-      
       const img = document.createElement('img');
       img.src = p.viewUrl;
       img.loading = 'lazy';
@@ -102,17 +161,13 @@ async function loadPhotos(id, name) {
           a.setAttribute('data-pswp-height', img.naturalHeight);
         }
       };
-
-      // 「カバーに設定」ボタン
       const coverBtn = document.createElement('button');
       coverBtn.className = 'set-cover-btn';
       coverBtn.innerHTML = '★';
-      coverBtn.title = 'カバーに設定';
       coverBtn.onclick = (e) => {
         e.stopPropagation();
         setAsCover(p.id);
       };
-
       a.appendChild(img);
       photoItem.appendChild(a);
       photoItem.appendChild(coverBtn);
@@ -122,11 +177,13 @@ async function loadPhotos(id, name) {
 }
 
 async function setAsCover(fileId) {
-  if (!confirm('この写真をアルバムのカバーに設定しますか？')) return;
+  if (!confirm('この写真をカバーに設定しますか？')) return;
   toggleLoading(true, "設定中...");
   const result = await callApi('POST', { action: 'setCover', folderId: currentFolderId, fileId: fileId });
   toggleLoading(false);
-  if (result.success) alert('カバー画像を更新しました。一覧画面で確認してください。');
+  if (result.success) {
+    alert('設定完了！一覧画面を下にスワイプして更新してください。');
+  }
 }
 
 document.getElementById('btn-save-memo').onclick = async () => {
