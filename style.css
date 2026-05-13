@@ -1,42 +1,60 @@
-:root { --primary: #1a73e8; --bg: #f8f9fa; --text: #3c4043; }
-body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; color: var(--text); }
-header { background: white; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 100; }
-h1 { margin: 0; font-size: 1.1rem; }
+:root { 
+  --primary: #1a73e8; 
+  --bg: #fdfdfd; 
+  --text: #202124; 
+  --card-bg: #ffffff;
+}
 
-.container { max-width: 600px; margin: 0 auto; padding: 15px; padding-bottom: 80px; }
-.card { background: white; padding: 15px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 15px; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; color: var(--text); -webkit-tap-highlight-color: transparent; }
+header { background: white; padding: 18px; text-align: center; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 100; }
+h1 { margin: 0; font-size: 1.2rem; letter-spacing: 0.05rem; }
 
-.memo-card textarea { width: 100%; border: 1px solid #ddd; border-radius: 10px; padding: 10px; font-size: 0.9rem; resize: none; box-sizing: border-box; }
-.btn-small { width: auto; padding: 8px 16px; font-size: 0.8rem; margin-top: 8px; float: right; border-radius: 20px; }
-.status-text { font-size: 0.75rem; color: #34a853; margin-top: 12px; height: 1em; }
+.container { max-width: 800px; margin: 0 auto; padding: 15px; padding-bottom: 100px; }
 
-.album-item { padding: 18px; background: white; margin-bottom: 10px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; cursor: pointer; }
-button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
-.btn-secondary { background: white; color: var(--primary); border: 2px solid var(--primary); }
-.back-btn { background: none; color: #5f6368; padding: 0; width: auto; margin-right: 10px; }
+/* アルバムリスト */
+#album-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+.album-card { background: var(--card-bg); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.06); transition: transform 0.2s ease; border: 1px solid #f0f0f0; cursor: pointer; }
+.album-card:active { transform: scale(0.97); }
+.album-cover { width: 100%; aspect-ratio: 1 / 1; background-color: #f1f3f4; background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
+.album-info { padding: 12px; background: white; }
+.album-name { font-weight: 600; font-size: 0.95rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.upload-label { display: block; padding: 12px; background: white; color: var(--primary); text-align: center; border-radius: 12px; border: 2px solid #e8f0fe; font-weight: bold; margin-bottom: 20px; }
-
-/* 写真グリッドの調整 */
+/* 写真グリッド */
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-.grid a { display: block; aspect-ratio: 1; overflow: hidden; border-radius: 4px; }
-.grid img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.2s; }
-.grid a:active img { opacity: 0.7; }
+.photo-item { position: relative; aspect-ratio: 1; border-radius: 4px; overflow: hidden; }
+.photo-item a { display: block; width: 100%; height: 100%; }
+.photo-item img { width: 100%; height: 100%; object-fit: cover; }
 
-.loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-.message { padding: 12px; text-align: center; margin-top: 10px; font-size: 0.8rem; }
-
-/* style.css の末尾に追加 */
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid var(--primary);
+/* カバー設定ボタン */
+.set-cover-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto;
+  color: #5f6368;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  z-index: 10;
 }
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+.set-cover-btn:active { background: var(--primary); color: white; }
+
+/* 共通パーツ */
+.card { background: white; padding: 15px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 1rem; cursor: pointer; }
+.btn-secondary { background: white; color: var(--primary); border: 2px solid var(--primary); margin-top: 10px; }
+.bottom-controls { position: fixed; bottom: 20px; left: 0; right: 0; padding: 0 20px; max-width: 760px; margin: 0 auto; }
+.back-btn { background: none; color: var(--primary); padding: 0; width: auto; margin-right: 15px; font-size: 1.5rem; }
+.album-header { display: flex; align-items: center; margin-bottom: 15px; }
+
+.loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
