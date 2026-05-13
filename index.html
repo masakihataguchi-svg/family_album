@@ -3,13 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="家族アルバム">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
-  <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/[ID]">
-  <link rel="icon" sizes="192x192" href="https://lh3.googleusercontent.com/d/[ID]">
+  <link rel="apple-touch-icon" href="http://googleusercontent.com/profile/picture/6">
+  <link rel="icon" sizes="192x192" href="http://googleusercontent.com/profile/picture/6">
 
   <title>家族アルバム</title>
   <link rel="stylesheet" href="style.css">
@@ -19,11 +18,16 @@
   <script src="config.js"></script>
 </head>
 <body>
+  <div id="pull-indicator" class="pull-indicator">
+    <div class="arrow-icon">↓</div>
+    <div class="refresh-spinner" style="display:none;"></div>
+  </div>
+
   <header>
     <h1>家族アルバム</h1>
   </header>
 
-  <main class="container">
+  <main class="container" id="main-container">
     <section id="section-view">
       <div id="album-list"></div>
       <div class="bottom-controls">
