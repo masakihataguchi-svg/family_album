@@ -1,6 +1,6 @@
 /**
  * 家族アルバムアプリ - script.js
- * 機能追加: Pull-to-refresh, キャッシュバスター対応
+ * 機能: Pull-to-refresh, キャッシュバスター, カバー画像ハイライト対応
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
@@ -20,10 +20,9 @@ const sections = {
   photos: document.getElementById('section-photos')
 };
 
-// --- Pull-to-refresh用変数 ---
 let touchStart = 0;
 let pullDistance = 0;
-const threshold = 80; // 更新が実行される閾値(px)
+const threshold = 80;
 const container = document.getElementById('main-container');
 const pullIndicator = document.getElementById('pull-indicator');
 const arrow = pullIndicator.querySelector('.arrow-icon');
@@ -35,19 +34,15 @@ window.onload = () => {
   initPullToRefresh();
 };
 
-// --- 引っ張って更新のロジック ---
 function initPullToRefresh() {
   window.addEventListener('touchstart', e => {
-    // 画面の一番上にいる時だけ有効にする
     if (window.scrollY === 0) touchStart = e.touches[0].pageY;
   }, { passive: true });
 
   window.addEventListener('touchmove', e => {
     if (touchStart === 0 || window.scrollY > 0) return;
-    
     const touchY = e.touches[0].pageY;
-    pullDistance = Math.max(0, (touchY - touchStart) * 0.4); // 40%の重みで引っ張る感触を出す
-
+    pullDistance = Math.max(0, (touchY - touchStart) * 0.4);
     if (pullDistance > 0) {
       container.style.transform = `translateY(${pullDistance}px)`;
       pullIndicator.style.transform = `translateY(${pullDistance}px)`;
@@ -57,7 +52,6 @@ function initPullToRefresh() {
 
   window.addEventListener('touchend', async () => {
     if (pullDistance >= threshold && sections.view.style.display !== 'none') {
-      // 更新実行
       arrow.style.display = 'none';
       spinner.style.display = 'block';
       await loadAlbums();
@@ -106,10 +100,7 @@ async function loadAlbums() {
   if (result.success) {
     const list = document.getElementById('album-list');
     list.innerHTML = '';
-    
-    // 【重要】キャッシュ対策：URLに現在時刻を付与する
     const time = new Date().getTime();
-
     result.data.forEach(a => {
       const card = document.createElement('div');
       card.className = 'album-card';
@@ -134,8 +125,14 @@ async function loadPhotos(id, name) {
   document.getElementById('album-memo').value = "";
   
   toggleLoading(true, "データを取得中...");
-  const memoRes = await callApi('GET', { action: 'getMemo', folderId: id });
-  if (memoRes.success) document.getElementById('album-memo').value = memoRes.data || "";
+  
+  // メモとカバー画像情報を同時に取得
+  const folderDataRes = await callApi('GET', { action: 'getFolderData', folderId: id });
+  let currentCoverId = null;
+  if (folderDataRes.success) {
+    document.getElementById('album-memo').value = folderDataRes.data.memo || "";
+    currentCoverId = folderDataRes.data.coverId;
+  }
 
   const photoRes = await callApi('GET', { action: 'getPhotos', folderId: id });
   toggleLoading(false);
@@ -161,13 +158,19 @@ async function loadPhotos(id, name) {
           a.setAttribute('data-pswp-height', img.naturalHeight);
         }
       };
+
       const coverBtn = document.createElement('button');
       coverBtn.className = 'set-cover-btn';
+      // 【重要】現在のカバー画像であればクラスを付与
+      if (p.id === currentCoverId) {
+        coverBtn.classList.add('is-cover');
+      }
       coverBtn.innerHTML = '★';
       coverBtn.onclick = (e) => {
         e.stopPropagation();
         setAsCover(p.id);
       };
+
       a.appendChild(img);
       photoItem.appendChild(a);
       photoItem.appendChild(coverBtn);
@@ -182,7 +185,11 @@ async function setAsCover(fileId) {
   const result = await callApi('POST', { action: 'setCover', folderId: currentFolderId, fileId: fileId });
   toggleLoading(false);
   if (result.success) {
-    alert('設定完了！一覧画面を下にスワイプして更新してください。');
+    // 画面上の星マークを即座に更新
+    const buttons = document.querySelectorAll('.set-cover-btn');
+    buttons.forEach(btn => btn.classList.remove('is-cover'));
+    // ボタンの親の親（photo-item）内にあるIDを探すのは大変なので、再読み込み
+    loadPhotos(currentFolderId, document.getElementById('current-album-name').innerText);
   }
 }
 
