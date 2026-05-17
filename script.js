@@ -1,6 +1,6 @@
 /**
  * 家族アルバムアプリ - script.js
- * 機能: パスワード認証ゲートウェイ + ハイブリッド・プロキシ高速ストリーミング対応版
+ * 機能: パスワード認証ゲートウェイ + ハイブリッド・プロキシバルクロード高速対応版
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
@@ -120,6 +120,9 @@ async function callApi(method, payload = null) {
   }
 }
 
+/**
+ * 変更：画像要求の並列ループ連打を完全に排除
+ */
 async function loadAlbums() {
   toggleLoading(true, "アルバムを取得中...");
   const result = await callApi('GET', { action: 'getAlbums' });
@@ -133,7 +136,14 @@ async function loadAlbums() {
       
       const coverEl = document.createElement('div');
       coverEl.className = 'album-cover';
-      coverEl.innerText = '📂';
+      
+      // 最初からデータに入っている一括ロードデータを直接マッピング
+      if (a.coverBase64) {
+        coverEl.style.backgroundImage = `url('${a.coverBase64}')`;
+        coverEl.innerText = '';
+      } else {
+        coverEl.innerText = '📂';
+      }
       
       const infoEl = document.createElement('div');
       infoEl.className = 'album-info';
@@ -143,16 +153,6 @@ async function loadAlbums() {
       card.appendChild(infoEl);
       card.onclick = () => loadPhotos(a.id, a.name);
       list.appendChild(card);
-      
-      // 修正: 戻り値の「res.base64」を背景画像にマッピング
-      if (a.coverId) {
-        callApi('GET', { action: 'getProxyImageUrl', fileId: a.coverId }).then(res => {
-          if (res.success && res.base64) {
-            coverEl.style.backgroundImage = `url('${res.base64}')`;
-            coverEl.innerText = '';
-          }
-        });
-      }
     });
     toggleLoading(false);
   } else {
@@ -160,6 +160,9 @@ async function loadAlbums() {
   }
 }
 
+/**
+ * 変更：写真表示の並列ループ連打を完全に排除して超高速化
+ */
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
@@ -191,7 +194,12 @@ async function loadPhotos(id, name) {
       
       const img = document.createElement('img');
       img.loading = 'lazy';
-      img.style.backgroundColor = '#f1f3f4';
+      
+      // 追加のAPI要求を完全に廃止し、同梱データをそのままセット
+      if (p.base64) {
+        img.src = p.base64;
+        a.href = p.base64;
+      }
       
       const coverBtn = document.createElement('button');
       coverBtn.className = 'set-cover-btn';
@@ -207,19 +215,12 @@ async function loadPhotos(id, name) {
       photoItem.appendChild(coverBtn);
       grid.appendChild(photoItem);
       
-      // 修正: 戻り値の「res.base64」を src と href にインジェクション
-      callApi('GET', { action: 'getProxyImageUrl', fileId: p.id }).then(res => {
-        if (res.success && res.base64) {
-          img.src = res.base64;
-          a.href = res.base64;
-          img.onload = () => {
-            if (img.naturalWidth > 0) {
-              a.setAttribute('data-pswp-width', img.naturalWidth);
-              a.setAttribute('data-pswp-height', img.naturalHeight);
-            }
-          };
+      img.onload = () => {
+        if (img.naturalWidth > 0) {
+          a.setAttribute('data-pswp-width', img.naturalWidth);
+          a.setAttribute('data-pswp-height', img.naturalHeight);
         }
-      });
+      };
     });
   }
 }
