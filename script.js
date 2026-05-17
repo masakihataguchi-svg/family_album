@@ -1,11 +1,14 @@
 /**
  * 家族アルバムアプリ - script.js
- * 機能: Pull-to-refresh, キャッシュバスター, カバー画像ハイライト対応
+ * 機能: パスワード認証ゲートウェイ付き確定版
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
 const GAS_API_URL = CONFIG.GAS_API_URL;
 let currentFolderId = null;
+
+// --- 【重要】アルバムを開くための共通パスワードを設定してください ---
+const ALBUM_PASSWORD = 'Fuse1220-4'; 
 
 const lightbox = new PhotoSwipeLightbox({
   gallery: '#photo-grid',
@@ -29,9 +32,40 @@ const arrow = pullIndicator.querySelector('.arrow-icon');
 const spinner = pullIndicator.querySelector('.refresh-spinner');
 
 window.onload = () => {
-  showSection('view');
-  loadAlbums();
+  // すでにセッション中に認証済みの場合は即座にロード
+  if (sessionStorage.getItem('family_album_auth') === 'true') {
+    document.getElementById('lock-screen').style.display = 'none';
+    showSection('view');
+    loadAlbums();
+  } else {
+    // 未認証ならロック画面を表示
+    document.getElementById('lock-screen').style.display = 'flex';
+  }
   initPullToRefresh();
+};
+
+// ログイン照合処理
+document.getElementById('btn-login').onclick = () => {
+  const input = document.getElementById('password-input').value;
+  const errorEl = document.getElementById('lock-error');
+  
+  if (input === ALBUM_PASSWORD) {
+    errorEl.style.display = 'none';
+    sessionStorage.setItem('family_album_auth', 'true'); // ブラウザを閉じるまで記憶
+    document.getElementById('lock-screen').style.display = 'none';
+    showSection('view');
+    loadAlbums();
+  } else {
+    errorEl.style.display = 'block';
+    document.getElementById('password-input').value = '';
+  }
+};
+
+// エンターキーでもログインできるように対応
+document.getElementById('password-input').onkeydown = (e) => {
+  if (e.key === 'Enter') {
+    document.getElementById('btn-login').click();
+  }
 };
 
 function initPullToRefresh() {
@@ -126,7 +160,6 @@ async function loadPhotos(id, name) {
   
   toggleLoading(true, "データを取得中...");
   
-  // メモとカバー画像情報を同時に取得
   const folderDataRes = await callApi('GET', { action: 'getFolderData', folderId: id });
   let currentCoverId = null;
   if (folderDataRes.success) {
@@ -161,7 +194,6 @@ async function loadPhotos(id, name) {
 
       const coverBtn = document.createElement('button');
       coverBtn.className = 'set-cover-btn';
-      // 【重要】現在のカバー画像であればクラスを付与
       if (p.id === currentCoverId) {
         coverBtn.classList.add('is-cover');
       }
@@ -185,10 +217,6 @@ async function setAsCover(fileId) {
   const result = await callApi('POST', { action: 'setCover', folderId: currentFolderId, fileId: fileId });
   toggleLoading(false);
   if (result.success) {
-    // 画面上の星マークを即座に更新
-    const buttons = document.querySelectorAll('.set-cover-btn');
-    buttons.forEach(btn => btn.classList.remove('is-cover'));
-    // ボタンの親の親（photo-item）内にあるIDを探すのは大変なので、再読み込み
     loadPhotos(currentFolderId, document.getElementById('current-album-name').innerText);
   }
 }
