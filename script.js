@@ -1,14 +1,14 @@
 /**
  * 家族アルバムアプリ - script.js
- * 機能: パスワード認証ゲートウェイ付き確定版
+ * 機能: パスワード認証ゲートウェイ + 完全非公開プロキシ画像ストリーミング対応版
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
 const GAS_API_URL = CONFIG.GAS_API_URL;
 let currentFolderId = null;
 
-// --- 【重要】アルバムを開くための共通パスワードを設定してください ---
-const ALBUM_PASSWORD = 'Fuse1220-4'; 
+// --- アルバムを開くための共通パスワード ---
+const ALBUM_PASSWORD = 'saku2026'; 
 
 const lightbox = new PhotoSwipeLightbox({
   gallery: '#photo-grid',
@@ -32,26 +32,23 @@ const arrow = pullIndicator.querySelector('.arrow-icon');
 const spinner = pullIndicator.querySelector('.refresh-spinner');
 
 window.onload = () => {
-  // すでにセッション中に認証済みの場合は即座にロード
   if (sessionStorage.getItem('family_album_auth') === 'true') {
     document.getElementById('lock-screen').style.display = 'none';
     showSection('view');
     loadAlbums();
   } else {
-    // 未認証ならロック画面を表示
     document.getElementById('lock-screen').style.display = 'flex';
   }
   initPullToRefresh();
 };
 
-// ログイン照合処理
 document.getElementById('btn-login').onclick = () => {
   const input = document.getElementById('password-input').value;
   const errorEl = document.getElementById('lock-error');
   
   if (input === ALBUM_PASSWORD) {
     errorEl.style.display = 'none';
-    sessionStorage.setItem('family_album_auth', 'true'); // ブラウザを閉じるまで記憶
+    sessionStorage.setItem('family_album_auth', 'true');
     document.getElementById('lock-screen').style.display = 'none';
     showSection('view');
     loadAlbums();
@@ -61,7 +58,6 @@ document.getElementById('btn-login').onclick = () => {
   }
 };
 
-// エンターキーでもログインできるように対応
 document.getElementById('password-input').onkeydown = (e) => {
   if (e.key === 'Enter') {
     document.getElementById('btn-login').click();
@@ -128,23 +124,42 @@ async function callApi(method, payload = null) {
   }
 }
 
+/**
+ * 修正：安全なDOMビルドと、カバー画像の非同期プロキシロードの実装
+ */
 async function loadAlbums() {
   toggleLoading(true, "アルバムを取得中...");
   const result = await callApi('GET', { action: 'getAlbums' });
   if (result.success) {
     const list = document.getElementById('album-list');
     list.innerHTML = '';
-    const time = new Date().getTime();
+    
     result.data.forEach(a => {
       const card = document.createElement('div');
       card.className = 'album-card';
-      const coverUrl = a.coverUrl ? `${a.coverUrl}&t=${time}` : null;
-      const coverHtml = coverUrl 
-        ? `<div class="album-cover" style="background-image: url('${coverUrl}')"></div>`
-        : `<div class="album-cover">📂</div>`;
-      card.innerHTML = `${coverHtml}<div class="album-info"><span class="album-name">${a.name}</span></div>`;
+      
+      const coverEl = document.createElement('div');
+      coverEl.className = 'album-cover';
+      coverEl.innerText = '📂'; // ロード完了までの暫定プレースホルダー
+      
+      const infoEl = document.createElement('div');
+      infoEl.className = 'album-info';
+      infoEl.innerHTML = `<span class="album-name">${a.name}</span>`;
+      
+      card.appendChild(coverEl);
+      card.appendChild(infoEl);
       card.onclick = () => loadPhotos(a.id, a.name);
       list.appendChild(card);
+      
+      // 非公開フォルダからマサキさんの権限でカバー画像のBase64を非同期取得
+      if (a.coverId) {
+        callApi('GET', { action: 'getThumbnailBase64', fileId: a.coverId, size: 'w400' }).then(res => {
+          if (res.success && res.base64) {
+            coverEl.style.backgroundImage = `url('${res.base64}')`;
+            coverEl.innerText = '';
+          }
+        });
+      }
     });
     toggleLoading(false);
   } else {
@@ -152,6 +167,9 @@ async function loadAlbums() {
   }
 }
 
+/**
+ * 修正：写真表示ロジックを非公開ストリーミング（w800）に全面書き換え
+ */
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
@@ -174,24 +192,17 @@ async function loadPhotos(id, name) {
   grid.innerHTML = '';
   
   if (photoRes.success && photoRes.data.length > 0) {
-    photoRes.data.sort((a, b) => a.name.localeCompare(b.name));
     photoRes.data.forEach(p => {
       const photoItem = document.createElement('div');
       photoItem.className = 'photo-item';
-      const fullUrl = p.viewUrl.replace(/&sz=w\d+/, '&sz=w1600');
+      
       const a = document.createElement('a');
-      a.href = fullUrl;
       a.className = 'pswp-link';
+      
       const img = document.createElement('img');
-      img.src = p.viewUrl;
       img.loading = 'lazy';
-      img.onload = () => {
-        if (img.naturalWidth > 0) {
-          a.setAttribute('data-pswp-width', img.naturalWidth);
-          a.setAttribute('data-pswp-height', img.naturalHeight);
-        }
-      };
-
+      img.style.backgroundColor = '#f1f3f4'; // 読み込み中の背景色
+      
       const coverBtn = document.createElement('button');
       coverBtn.className = 'set-cover-btn';
       if (p.id === currentCoverId) {
@@ -207,6 +218,20 @@ async function loadPhotos(id, name) {
       photoItem.appendChild(a);
       photoItem.appendChild(coverBtn);
       grid.appendChild(photoItem);
+      
+      // 写真ごとにGAS経由でw800の高品質データを非同期取得（一覧と PhotoSwipe 拡大の両方に使い回す）
+      callApi('GET', { action: 'getThumbnailBase64', fileId: p.id, size: 'w800' }).then(res => {
+        if (res.success && res.base64) {
+          img.src = res.base64;
+          a.href = res.base64;
+          img.onload = () => {
+            if (img.naturalWidth > 0) {
+              a.setAttribute('data-pswp-width', img.naturalWidth);
+              a.setAttribute('data-pswp-height', img.naturalHeight);
+            }
+          };
+        }
+      });
     });
   }
 }
