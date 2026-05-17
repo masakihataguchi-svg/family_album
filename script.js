@@ -1,12 +1,11 @@
 /**
  * 家族アルバムアプリ - script.js
- * 機能: パスワード認証ゲートウェイ + 完全非公開プロキシ画像ストリーミング対応版
- * 修正: パスワードの参照先を config.js (CONFIG.ALBUM_PASSWORD) に変更
+ * 機能: パスワード認証ゲートウェイ + 一時署名付き高速URLストリーミング対応版
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
 const GAS_API_URL = CONFIG.GAS_API_URL;
-const ALBUM_PASSWORD = CONFIG.ALBUM_PASSWORD; // config.jsから取得
+const ALBUM_PASSWORD = CONFIG.ALBUM_PASSWORD;
 let currentFolderId = null;
 
 const lightbox = new PhotoSwipeLightbox({
@@ -58,9 +57,7 @@ document.getElementById('btn-login').onclick = () => {
 };
 
 document.getElementById('password-input').onkeydown = (e) => {
-  if (e.key === 'Enter') {
-    document.getElementById('btn-login').click();
-  }
+  if (e.key === 'Enter') document.getElementById('btn-login').click();
 };
 
 function initPullToRefresh() {
@@ -147,10 +144,11 @@ async function loadAlbums() {
       card.onclick = () => loadPhotos(a.id, a.name);
       list.appendChild(card);
       
+      // 変更: action名を getProxyImageUrl に変更し、返却されたURLを直書き
       if (a.coverId) {
-        callApi('GET', { action: 'getThumbnailBase64', fileId: a.coverId }).then(res => {
-          if (res.success && res.base64) {
-            coverEl.style.backgroundImage = `url('${res.base64}')`;
+        callApi('GET', { action: 'getProxyImageUrl', fileId: a.coverId }).then(res => {
+          if (res.success && res.url) {
+            coverEl.style.backgroundImage = `url('${res.url}')`;
             coverEl.innerText = '';
           }
         });
@@ -197,9 +195,7 @@ async function loadPhotos(id, name) {
       
       const coverBtn = document.createElement('button');
       coverBtn.className = 'set-cover-btn';
-      if (p.id === currentCoverId) {
-        coverBtn.classList.add('is-cover');
-      }
+      if (p.id === currentCoverId) coverBtn.classList.add('is-cover');
       coverBtn.innerHTML = '★';
       coverBtn.onclick = (e) => {
         e.stopPropagation();
@@ -211,10 +207,11 @@ async function loadPhotos(id, name) {
       photoItem.appendChild(coverBtn);
       grid.appendChild(photoItem);
       
-      callApi('GET', { action: 'getThumbnailBase64', fileId: p.id }).then(res => {
-        if (res.success && res.base64) {
-          img.src = res.base64;
-          a.href = res.base64;
+      // 変更: 署名付きのURLを受け取り、ダイレクトにバインド
+      callApi('GET', { action: 'getProxyImageUrl', fileId: p.id }).then(res => {
+        if (res.success && res.url) {
+          img.src = res.url;
+          a.href = res.url;
           img.onload = () => {
             if (img.naturalWidth > 0) {
               a.setAttribute('data-pswp-width', img.naturalWidth);
