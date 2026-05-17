@@ -4,7 +4,7 @@
   --text: #202124; 
   --card-bg: #ffffff;
   --star-active: #fbbc04;
-  --success: #34a853; /* 追加：目立たせるためのGoogleグリーン */
+  --success: #34a853;
 }
 
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; color: var(--text); -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
@@ -30,6 +30,19 @@ h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.05rem; line-height: 22px; }
 }
 .error-text { color: #d93025; font-size: 0.85rem; font-weight: bold; margin-top: 10px; }
 
+/* 追記：動画再生プレイヤー専用全画面モーダル */
+.video-modal {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.95); display: flex; justify-content: center; align-items: center;
+  z-index: 3000;
+}
+.video-modal video { width: 100%; max-height: 100%; object-fit: contain; }
+.video-close {
+  position: absolute; top: 16px; right: 24px; color: white;
+  font-size: 42px; font-weight: 300; cursor: pointer; z-index: 3100;
+  line-height: 42px; width: 44px; height: 44px; text-align: center;
+}
+
 /* 引っ張って更新 */
 .pull-indicator { position: absolute; top: -50px; left: 0; right: 0; height: 50px; display: flex; justify-content: center; align-items: center; z-index: 50; transition: transform 0.2s ease; color: var(--primary); font-weight: bold; }
 .arrow-icon { font-size: 24px; transition: transform 0.2s; }
@@ -37,29 +50,20 @@ h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.05rem; line-height: 22px; }
 
 .container { max-width: 800px; margin: 0 auto; padding: 0 15px 100px 15px; transition: transform 0.1s ease-out; position: relative; }
 
-/* 改良：固定ヘッダー (アプリのメインヘッダーの直下にスタック) */
+/* 固定サブヘッダー */
 .album-header.sticky-header {
-  position: sticky;
-  top: 54px; /* app-main-header の高さにジャストフィット */
-  background: var(--bg); /* 下の写真が透けないように背景色を指定 */
-  padding: 14px 0;
-  margin: 0;
-  z-index: 90;
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid #f1f3f4;
+  position: sticky; top: 54px; background: var(--bg); padding: 14px 0; margin: 0; z-index: 90;
+  display: flex; align-items: center; border-bottom: 1px solid #f1f3f4;
 }
 .photos-scroll-content { padding-top: 15px; }
 
-/* 改良：文字サイズ微調整 */
 .back-btn { 
   background: none; color: var(--primary); padding: 0; width: auto; 
-  margin-right: 14px; font-size: 0.95rem; font-weight: 500; border: none; cursor: pointer;
-  white-space: nowrap;
+  margin-right: 14px; font-size: 0.95rem; font-weight: 500; border: none; cursor: pointer; white-space: nowrap;
 }
 .album-header h3 { margin: 0; font-size: 1.4rem; font-weight: 700; color: #111; letter-spacing: -0.02rem; }
 
-/* 改良：写真追加の完全ボタン化 */
+/* 写真・動画追加のグリーンボタン */
 .upload-area { margin-bottom: 20px; }
 .upload-btn-label {
   display: block; width: 100%; padding: 14px; background: var(--success);
@@ -78,10 +82,19 @@ h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.05rem; line-height: 22px; }
 .album-info { padding: 10px; background: white; }
 .album-name { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* 写真グリッド */
+/* メディアグリッド */
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-.photo-item { position: relative; aspect-ratio: 1; border-radius: 4px; overflow: hidden; }
-.photo-item img { width: 100%; height: 100%; object-fit: cover; }
+.photo-item { position: relative; aspect-ratio: 1; border-radius: 4px; overflow: hidden; background-color: #f1f3f4; }
+.photo-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* 追記：動画サムネイル上へ重ねる再生マークバッジ */
+.video-badge {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 42px; height: 42px; background: rgba(0, 0, 0, 0.55); border-radius: 50%;
+  display: flex; justify-content: center; align-items: center; color: white;
+  font-size: 14px; pointer-events: none; border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3); padding-left: 3px; box-sizing: border-box;
+}
 
 .set-cover-btn {
   position: absolute; top: 4px; right: 4px; width: 36px; height: 36px;
