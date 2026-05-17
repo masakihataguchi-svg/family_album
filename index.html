@@ -24,7 +24,7 @@
       <h2>🔒 家族アルバム</h2>
       <p>このアルバムは身内専用です。<br>パスワードを入力してください。</p>
       <input type="password" id="password-input" placeholder="パスワードを入力">
-      <button id="btn-login">ログイン</button>
+      <button id="btn-login">連動を開始する</button>
       <div id="lock-error" class="error-text" style="display:none;">パスワードが違います</div>
     </div>
   </div>
@@ -34,7 +34,7 @@
     <div class="refresh-spinner" style="display:none;"></div>
   </div>
 
-  <header>
+  <header class="app-main-header">
     <h1>家族アルバム</h1>
   </header>
 
@@ -58,21 +58,26 @@
     </section>
 
     <section id="section-photos" style="display:none;">
-      <div class="album-header">
+      <div class="album-header sticky-header">
         <button class="back-btn" id="btn-back-to-list">← 一覧に戻る</button>
         <h3 id="current-album-name"></h3>
       </div>
-      <div class="card memo-card">
-        <textarea id="album-memo" placeholder="場所や思い出をメモ..." rows="3"></textarea>
-        <button id="btn-save-memo" class="btn-small">メモを保存</button>
-        <div id="memo-status" class="status-text"></div>
+      
+      <div class="photos-scroll-content">
+        <div class="card memo-card">
+          <textarea id="album-memo" placeholder="場所や思い出をメモ..." rows="3"></textarea>
+          <button id="btn-save-memo" class="btn-small">メモを保存</button>
+          <div id="memo-status" class="status-text"></div>
+        </div>
+        
+        <div class="upload-area">
+          <label class="upload-btn-label" for="file-upload">📷 写真を追加する</label>
+          <input id="file-upload" type="file" multiple accept="image/*" style="display:none;">
+          <div id="upload-status" class="message" style="display:none;"></div>
+        </div>
+        
+        <div id="photo-grid" class="grid pswp-gallery"></div>
       </div>
-      <div class="upload-area">
-        <label class="upload-label" for="file-upload">📷 写真を追加する</label>
-        <input id="file-upload" type="file" multiple accept="image/*" style="display:none;">
-        <div id="upload-status" class="message" style="display:none;"></div>
-      </div>
-      <div id="photo-grid" class="grid pswp-gallery"></div>
     </section>
   </main>
 
