@@ -1,6 +1,6 @@
 /**
  * 家族アルバムアプリ - script.js
- * 機能: パスワード認証ゲートウェイ + ハイブリッド・プロキシバルクロード高速対応版
+ * 機能: パスワード認証ゲートウェイ + ハイブリッド・セキュリティ超高速配信版
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
@@ -120,9 +120,6 @@ async function callApi(method, payload = null) {
   }
 }
 
-/**
- * 変更：画像要求の並列ループ連打を完全に排除
- */
 async function loadAlbums() {
   toggleLoading(true, "アルバムを取得中...");
   const result = await callApi('GET', { action: 'getAlbums' });
@@ -137,9 +134,9 @@ async function loadAlbums() {
       const coverEl = document.createElement('div');
       coverEl.className = 'album-cover';
       
-      // 最初からデータに入っている一括ロードデータを直接マッピング
-      if (a.coverBase64) {
-        coverEl.style.backgroundImage = `url('${a.coverBase64}')`;
+      // CDNから直接、爆速でカバー画像をレンダリング
+      if (a.coverUrl) {
+        coverEl.style.backgroundImage = `url('${a.coverUrl}')`;
         coverEl.innerText = '';
       } else {
         coverEl.innerText = '📂';
@@ -160,9 +157,6 @@ async function loadAlbums() {
   }
 }
 
-/**
- * 変更：写真表示の並列ループ連打を完全に排除して超高速化
- */
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
@@ -195,10 +189,11 @@ async function loadPhotos(id, name) {
       const img = document.createElement('img');
       img.loading = 'lazy';
       
-      // 追加のAPI要求を完全に廃止し、同梱データをそのままセット
-      if (p.base64) {
-        img.src = p.base64;
-        a.href = p.base64;
+      // パブリックCDNサムネイルURL(限定公開)をダイレクトにバインド
+      if (p.viewUrl) {
+        img.src = p.viewUrl;
+        // PhotoSwipeの拡大表示用URL（高解像度化）
+        a.href = p.viewUrl.replace(/&sz=w\d+/, '&sz=w1600');
       }
       
       const coverBtn = document.createElement('button');
