@@ -29,6 +29,11 @@
     </div>
   </div>
 
+  <div id="video-modal" class="video-modal" style="display:none;">
+    <span class="video-close" id="btn-close-video">&times;</span>
+    <video id="modal-video" controls playsinline></video>
+  </div>
+
   <div id="pull-indicator" class="pull-indicator">
     <div class="arrow-icon">↓</div>
     <div class="refresh-spinner" style="display:none;"></div>
@@ -71,8 +76,8 @@
         </div>
         
         <div class="upload-area">
-          <label class="upload-btn-label" for="file-upload">📷 写真を追加する</label>
-          <input id="file-upload" type="file" multiple accept="image/*" style="display:none;">
+          <label class="upload-btn-label" for="file-upload">📷 メディアを追加する</label>
+          <input id="file-upload" type="file" multiple accept="image/*,video/*" style="display:none;">
           <div id="upload-status" class="message" style="display:none;"></div>
         </div>
         
