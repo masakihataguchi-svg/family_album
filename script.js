@@ -1,6 +1,6 @@
 /**
  * 家族アルバムアプリ - script.js
- * 機能: パスワード認証ゲートウェイ + 一時署名付き高速URLストリーミング対応版
+ * 機能: パスワード認証ゲートウェイ + ハイブリッド・プロキシ高速ストリーミング対応版
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
@@ -144,11 +144,11 @@ async function loadAlbums() {
       card.onclick = () => loadPhotos(a.id, a.name);
       list.appendChild(card);
       
-      // 変更: action名を getProxyImageUrl に変更し、返却されたURLを直書き
+      // 修正: 戻り値の「res.base64」を背景画像にマッピング
       if (a.coverId) {
         callApi('GET', { action: 'getProxyImageUrl', fileId: a.coverId }).then(res => {
-          if (res.success && res.url) {
-            coverEl.style.backgroundImage = `url('${res.url}')`;
+          if (res.success && res.base64) {
+            coverEl.style.backgroundImage = `url('${res.base64}')`;
             coverEl.innerText = '';
           }
         });
@@ -207,11 +207,11 @@ async function loadPhotos(id, name) {
       photoItem.appendChild(coverBtn);
       grid.appendChild(photoItem);
       
-      // 変更: 署名付きのURLを受け取り、ダイレクトにバインド
+      // 修正: 戻り値の「res.base64」を src と href にインジェクション
       callApi('GET', { action: 'getProxyImageUrl', fileId: p.id }).then(res => {
-        if (res.success && res.url) {
-          img.src = res.url;
-          a.href = res.url;
+        if (res.success && res.base64) {
+          img.src = res.base64;
+          a.href = res.base64;
           img.onload = () => {
             if (img.naturalWidth > 0) {
               a.setAttribute('data-pswp-width', img.naturalWidth);
