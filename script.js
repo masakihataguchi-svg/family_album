@@ -1,14 +1,13 @@
 /**
  * 家族アルバムアプリ - script.js
  * 機能: パスワード認証ゲートウェイ + 完全非公開プロキシ画像ストリーミング対応版
+ * 修正: パスワードの参照先を config.js (CONFIG.ALBUM_PASSWORD) に変更
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
 const GAS_API_URL = CONFIG.GAS_API_URL;
+const ALBUM_PASSWORD = CONFIG.ALBUM_PASSWORD; // config.jsから取得
 let currentFolderId = null;
-
-// --- アルバムを開くための共通パスワード ---
-const ALBUM_PASSWORD = 'Fuse1220-4'; 
 
 const lightbox = new PhotoSwipeLightbox({
   gallery: '#photo-grid',
@@ -124,9 +123,6 @@ async function callApi(method, payload = null) {
   }
 }
 
-/**
- * 修正：安全なDOMビルドと、カバー画像の非同期プロキシロードの実装
- */
 async function loadAlbums() {
   toggleLoading(true, "アルバムを取得中...");
   const result = await callApi('GET', { action: 'getAlbums' });
@@ -140,7 +136,7 @@ async function loadAlbums() {
       
       const coverEl = document.createElement('div');
       coverEl.className = 'album-cover';
-      coverEl.innerText = '📂'; // ロード完了までの暫定プレースホルダー
+      coverEl.innerText = '📂';
       
       const infoEl = document.createElement('div');
       infoEl.className = 'album-info';
@@ -151,9 +147,8 @@ async function loadAlbums() {
       card.onclick = () => loadPhotos(a.id, a.name);
       list.appendChild(card);
       
-      // 非公開フォルダからマサキさんの権限でカバー画像のBase64を非同期取得
       if (a.coverId) {
-        callApi('GET', { action: 'getThumbnailBase64', fileId: a.coverId, size: 'w400' }).then(res => {
+        callApi('GET', { action: 'getThumbnailBase64', fileId: a.coverId }).then(res => {
           if (res.success && res.base64) {
             coverEl.style.backgroundImage = `url('${res.base64}')`;
             coverEl.innerText = '';
@@ -167,9 +162,6 @@ async function loadAlbums() {
   }
 }
 
-/**
- * 修正：写真表示ロジックを非公開ストリーミング（w800）に全面書き換え
- */
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
@@ -201,7 +193,7 @@ async function loadPhotos(id, name) {
       
       const img = document.createElement('img');
       img.loading = 'lazy';
-      img.style.backgroundColor = '#f1f3f4'; // 読み込み中の背景色
+      img.style.backgroundColor = '#f1f3f4';
       
       const coverBtn = document.createElement('button');
       coverBtn.className = 'set-cover-btn';
@@ -219,8 +211,7 @@ async function loadPhotos(id, name) {
       photoItem.appendChild(coverBtn);
       grid.appendChild(photoItem);
       
-      // 写真ごとにGAS経由でw800の高品質データを非同期取得（一覧と PhotoSwipe 拡大の両方に使い回す）
-      callApi('GET', { action: 'getThumbnailBase64', fileId: p.id, size: 'w800' }).then(res => {
+      callApi('GET', { action: 'getThumbnailBase64', fileId: p.id }).then(res => {
         if (res.success && res.base64) {
           img.src = res.base64;
           a.href = res.base64;
