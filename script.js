@@ -1,6 +1,6 @@
 /**
  * 家族アルバムアプリ - script.js
- * 機能: パスワード認証ゲートウェイ + ハイブリッド・セキュリティ超高速配信版
+ * 機能: パスワード認証ゲートウェイ + バルクロード・動画再生マルチメディア対応版
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
@@ -38,6 +38,7 @@ window.onload = () => {
     document.getElementById('lock-screen').style.display = 'flex';
   }
   initPullToRefresh();
+  initVideoModalEvents(); // 動画再生イベント初期化
 };
 
 document.getElementById('btn-login').onclick = () => {
@@ -134,7 +135,6 @@ async function loadAlbums() {
       const coverEl = document.createElement('div');
       coverEl.className = 'album-cover';
       
-      // CDNから直接、爆速でカバー画像をレンダリング
       if (a.coverUrl) {
         coverEl.style.backgroundImage = `url('${a.coverUrl}')`;
         coverEl.innerText = '';
@@ -157,6 +157,9 @@ async function loadAlbums() {
   }
 }
 
+/**
+ * 変更：画像・動画のマルチレイアウトレンダリング対応
+ */
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
@@ -183,17 +186,49 @@ async function loadPhotos(id, name) {
       const photoItem = document.createElement('div');
       photoItem.className = 'photo-item';
       
-      const a = document.createElement('a');
-      a.className = 'pswp-link';
-      
-      const img = document.createElement('img');
-      img.loading = 'lazy';
-      
-      // パブリックCDNサムネイルURL(限定公開)をダイレクトにバインド
-      if (p.viewUrl) {
+      if (p.isVideo) {
+        // 【動画用構造】タップ時にPhotoSwipeではなく専用モーダルをキックするラッパー
+        const videoWrapper = document.createElement('div');
+        videoWrapper.className = 'video-wrapper';
+        videoWrapper.style.position = 'relative';
+        videoWrapper.style.width = '100%';
+        videoWrapper.style.height = '100%';
+        videoWrapper.style.cursor = 'pointer';
+        
+        const img = document.createElement('img');
         img.src = p.viewUrl;
-        // PhotoSwipeの拡大表示用URL（高解像度化）
-        a.href = p.viewUrl.replace(/&sz=w\d+/, '&sz=w1600');
+        img.loading = 'lazy';
+        
+        // 動画であることを示す▶バッジを中央に配置
+        const playBadge = document.createElement('div');
+        playBadge.className = 'video-badge';
+        playBadge.innerHTML = '▶';
+        
+        videoWrapper.appendChild(img);
+        videoWrapper.appendChild(playBadge);
+        videoWrapper.onclick = () => openVideoModal(p.videoUrl);
+        
+        photoItem.appendChild(videoWrapper);
+      } else {
+        // 【画像用構造】PhotoSwipeLightboxが検知する従来のアンカーリンク
+        const a = document.createElement('a');
+        a.className = 'pswp-link';
+        if (p.viewUrl) {
+          a.href = p.viewUrl.replace(/&sz=w\d+/, '&sz=w1600');
+        }
+        
+        const img = document.createElement('img');
+        img.loading = 'lazy';
+        if (p.viewUrl) img.src = p.viewUrl;
+        
+        img.onload = () => {
+          if (img.naturalWidth > 0) {
+            a.setAttribute('data-pswp-width', img.naturalWidth);
+            a.setAttribute('data-pswp-height', img.naturalHeight);
+          }
+        };
+        a.appendChild(img);
+        photoItem.appendChild(a);
       }
       
       const coverBtn = document.createElement('button');
@@ -205,19 +240,37 @@ async function loadPhotos(id, name) {
         setAsCover(p.id);
       };
 
-      a.appendChild(img);
-      photoItem.appendChild(a);
       photoItem.appendChild(coverBtn);
       grid.appendChild(photoItem);
-      
-      img.onload = () => {
-        if (img.naturalWidth > 0) {
-          a.setAttribute('data-pswp-width', img.naturalWidth);
-          a.setAttribute('data-pswp-height', img.naturalHeight);
-        }
-      };
     });
   }
+}
+
+/**
+ * 【新規追加】動画再生モーダルの制御ロジック
+ */
+function openVideoModal(videoUrl) {
+  const modal = document.getElementById('video-modal');
+  const video = document.getElementById('modal-video');
+  video.src = videoUrl;
+  modal.style.display = 'flex';
+  video.play().catch(() => {}); // オートプレイの試行
+}
+
+function closeVideoModal() {
+  const modal = document.getElementById('video-modal');
+  const video = document.getElementById('modal-video');
+  video.pause();
+  video.src = ''; // メモリリーク防止と通信遮断
+  modal.style.display = 'none';
+}
+
+function initVideoModalEvents() {
+  document.getElementById('btn-close-video').onclick = () => closeVideoModal();
+  // 背景の黒い部分をタップしても閉じられる親切設計
+  document.getElementById('video-modal').onclick = (e) => {
+    if (e.target.id === 'video-modal') closeVideoModal();
+  };
 }
 
 async function setAsCover(fileId) {
