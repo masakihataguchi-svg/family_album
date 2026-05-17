@@ -8,7 +8,7 @@ const GAS_API_URL = CONFIG.GAS_API_URL;
 let currentFolderId = null;
 
 // --- アルバムを開くための共通パスワード ---
-const ALBUM_PASSWORD = 'saku2026'; 
+const ALBUM_PASSWORD = 'Fuse1220-4'; 
 
 const lightbox = new PhotoSwipeLightbox({
   gallery: '#photo-grid',
