@@ -1,6 +1,6 @@
 /**
  * 家族アルバムアプリ - script.js
- * 機能: パスワード認証ゲートウェイ + 一括バルクロード・動画対応確定版
+ * 機能: パスワードマネージャー自動保存対応 + バルクロード・動画再生マルチメディア対応版
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
@@ -41,7 +41,10 @@ window.onload = () => {
   initVideoModalEvents();
 };
 
-document.getElementById('btn-login').onclick = () => {
+// 変更：パスワード保存をトリガーするためにFormのSubmitイベントで照合をハンドリング
+document.getElementById('login-form').onsubmit = (e) => {
+  e.preventDefault(); // フォームサンプミットによるページ遷移（リロード）を抑止
+  
   const input = document.getElementById('password-input').value;
   const errorEl = document.getElementById('lock-error');
   
@@ -55,10 +58,6 @@ document.getElementById('btn-login').onclick = () => {
     errorEl.style.display = 'block';
     document.getElementById('password-input').value = '';
   }
-};
-
-document.getElementById('password-input').onkeydown = (e) => {
-  if (e.key === 'Enter') document.getElementById('btn-login').click();
 };
 
 function initPullToRefresh() {
@@ -184,7 +183,6 @@ async function loadPhotos(id, name) {
       photoItem.className = 'photo-item';
       
       if (p.isVideo) {
-        // 【動画レイアウト】タップでGoogleインラインプレイヤーモーダルを起動
         const videoWrapper = document.createElement('div');
         videoWrapper.className = 'video-wrapper';
         videoWrapper.style.position = 'relative';
@@ -206,7 +204,6 @@ async function loadPhotos(id, name) {
         
         photoItem.appendChild(videoWrapper);
       } else {
-        // 【画像レイアウト】従来通りのパブリックCDN高画質読み込み ＆ PhotoSwipe
         const a = document.createElement('a');
         a.className = 'pswp-link';
         if (p.viewUrl) {
@@ -242,9 +239,6 @@ async function loadPhotos(id, name) {
   }
 }
 
-/**
- * 改良：Google純正インラインプレイヤーへのバインド処理
- */
 function openVideoModal(videoUrl) {
   const modal = document.getElementById('video-modal');
   const iframe = document.getElementById('modal-video-frame');
@@ -255,7 +249,7 @@ function openVideoModal(videoUrl) {
 function closeVideoModal() {
   const modal = document.getElementById('video-modal');
   const iframe = document.getElementById('modal-video-frame');
-  iframe.src = ''; // ストリーミングバッファを強制終了
+  iframe.src = '';
   modal.style.display = 'none';
 }
 
