@@ -30,16 +30,19 @@ h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.05rem; line-height: 22px; }
 }
 .error-text { color: #d93025; font-size: 0.85rem; font-weight: bold; margin-top: 10px; }
 
-/* 追記：動画再生プレイヤー専用全画面モーダル */
+/* 改良：動画プレイヤー専用全画面モーダル (iframeレスポンシブ最適化) */
 .video-modal {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0, 0, 0, 0.95); display: flex; justify-content: center; align-items: center;
   z-index: 3000;
 }
-.video-modal video { width: 100%; max-height: 100%; object-fit: contain; }
+.video-modal iframe {
+  width: 94%; height: 76vh; max-width: 850px; border: none; border-radius: 16px;
+  background: #000; box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+}
 .video-close {
-  position: absolute; top: 16px; right: 24px; color: white;
-  font-size: 42px; font-weight: 300; cursor: pointer; z-index: 3100;
+  position: absolute; top: 16px; right: 24px; color: rgba(255,255,255,0.8);
+  font-size: 44px; font-weight: 200; cursor: pointer; z-index: 3100;
   line-height: 42px; width: 44px; height: 44px; text-align: center;
 }
 
@@ -63,7 +66,7 @@ h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.05rem; line-height: 22px; }
 }
 .album-header h3 { margin: 0; font-size: 1.4rem; font-weight: 700; color: #111; letter-spacing: -0.02rem; }
 
-/* 写真・動画追加のグリーンボタン */
+/* メディア追加グリーンボタン */
 .upload-area { margin-bottom: 20px; }
 .upload-btn-label {
   display: block; width: 100%; padding: 14px; background: var(--success);
@@ -87,7 +90,7 @@ h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.05rem; line-height: 22px; }
 .photo-item { position: relative; aspect-ratio: 1; border-radius: 4px; overflow: hidden; background-color: #f1f3f4; }
 .photo-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-/* 追記：動画サムネイル上へ重ねる再生マークバッジ */
+/* 動画サムネイル再生マークバッジ */
 .video-badge {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   width: 42px; height: 42px; background: rgba(0, 0, 0, 0.55); border-radius: 50%;
