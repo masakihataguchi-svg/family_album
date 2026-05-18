@@ -44,6 +44,7 @@
   </header>
 
   <main class="container" id="main-container">
+    
     <section id="section-view">
       <div id="album-list"></div>
       <div class="bottom-controls">
@@ -52,13 +53,18 @@
     </section>
 
     <section id="section-create" style="display:none;">
-      <div class="card">
-        <div class="album-header">
-          <button class="back-btn" id="btn-back-from-create">← 戻る</button>
-          <h3>新規作成</h3>
+      <div class="album-header sticky-header">
+        <button class="back-btn" id="btn-back-from-create">← 戻る</button>
+        <h3>新規作成</h3>
+      </div>
+      
+      <div class="create-scroll-content">
+        <div class="card">
+          <p class="input-label">アルバムの名前</p>
+          <input type="text" id="eventName" placeholder="例: 2026年 家族旅行" class="styled-input">
+          <button id="btn-create" class="btn-primary">フォルダを作成する</button>
+          <p class="input-help">作成するとGoogleドライブに自動的に専用フォルダが準備されます。</p>
         </div>
-        <input type="text" id="eventName" placeholder="例: 2026年 家族旅行">
-        <button id="btn-create">フォルダを作成する</button>
       </div>
     </section>
 
