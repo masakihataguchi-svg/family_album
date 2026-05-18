@@ -1,6 +1,6 @@
 /**
  * 家族アルバムアプリ - script.js
- * 機能: パスワード認証ゲートウェイ + バルクロード・動画再生マルチメディア対応版
+ * 機能: パスワード認証ゲートウェイ + 一括バルクロード・動画対応確定版
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
@@ -38,7 +38,7 @@ window.onload = () => {
     document.getElementById('lock-screen').style.display = 'flex';
   }
   initPullToRefresh();
-  initVideoModalEvents(); // 動画再生イベント初期化
+  initVideoModalEvents();
 };
 
 document.getElementById('btn-login').onclick = () => {
@@ -157,9 +157,6 @@ async function loadAlbums() {
   }
 }
 
-/**
- * 変更：画像・動画のマルチレイアウトレンダリング対応
- */
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
@@ -187,7 +184,7 @@ async function loadPhotos(id, name) {
       photoItem.className = 'photo-item';
       
       if (p.isVideo) {
-        // 【動画用構造】タップ時にPhotoSwipeではなく専用モーダルをキックするラッパー
+        // 【動画レイアウト】タップでGoogleインラインプレイヤーモーダルを起動
         const videoWrapper = document.createElement('div');
         videoWrapper.className = 'video-wrapper';
         videoWrapper.style.position = 'relative';
@@ -196,10 +193,9 @@ async function loadPhotos(id, name) {
         videoWrapper.style.cursor = 'pointer';
         
         const img = document.createElement('img');
-        img.src = p.viewUrl;
+        if (p.viewUrl) img.src = p.viewUrl;
         img.loading = 'lazy';
         
-        // 動画であることを示す▶バッジを中央に配置
         const playBadge = document.createElement('div');
         playBadge.className = 'video-badge';
         playBadge.innerHTML = '▶';
@@ -210,7 +206,7 @@ async function loadPhotos(id, name) {
         
         photoItem.appendChild(videoWrapper);
       } else {
-        // 【画像用構造】PhotoSwipeLightboxが検知する従来のアンカーリンク
+        // 【画像レイアウト】従来通りのパブリックCDN高画質読み込み ＆ PhotoSwipe
         const a = document.createElement('a');
         a.className = 'pswp-link';
         if (p.viewUrl) {
@@ -247,27 +243,24 @@ async function loadPhotos(id, name) {
 }
 
 /**
- * 【新規追加】動画再生モーダルの制御ロジック
+ * 改良：Google純正インラインプレイヤーへのバインド処理
  */
 function openVideoModal(videoUrl) {
   const modal = document.getElementById('video-modal');
-  const video = document.getElementById('modal-video');
-  video.src = videoUrl;
+  const iframe = document.getElementById('modal-video-frame');
+  iframe.src = videoUrl;
   modal.style.display = 'flex';
-  video.play().catch(() => {}); // オートプレイの試行
 }
 
 function closeVideoModal() {
   const modal = document.getElementById('video-modal');
-  const video = document.getElementById('modal-video');
-  video.pause();
-  video.src = ''; // メモリリーク防止と通信遮断
+  const iframe = document.getElementById('modal-video-frame');
+  iframe.src = ''; // ストリーミングバッファを強制終了
   modal.style.display = 'none';
 }
 
 function initVideoModalEvents() {
   document.getElementById('btn-close-video').onclick = () => closeVideoModal();
-  // 背景の黒い部分をタップしても閉じられる親切設計
   document.getElementById('video-modal').onclick = (e) => {
     if (e.target.id === 'video-modal') closeVideoModal();
   };
