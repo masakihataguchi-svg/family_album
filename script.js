@@ -1,6 +1,6 @@
 /**
  * 家族アルバムアプリ - script.js
- * 機能: パスワードマネージャー自動保存対応 + バルクロード・動画再生マルチメディア対応版
+ * 機能: パスワードマネージャー自動保存対応 + マルチメディア削除（ゴミ箱非破壊移動）対応版
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
@@ -39,12 +39,11 @@ window.onload = () => {
   }
   initPullToRefresh();
   initVideoModalEvents();
+  initDeleteAlbumEvent(); // アルバム削除イベント初期化
 };
 
-// 変更：パスワード保存をトリガーするためにFormのSubmitイベントで照合をハンドリング
 document.getElementById('login-form').onsubmit = (e) => {
-  e.preventDefault(); // フォームサンプミットによるページ遷移（リロード）を抑止
-  
+  e.preventDefault();
   const input = document.getElementById('password-input').value;
   const errorEl = document.getElementById('lock-error');
   
@@ -156,6 +155,9 @@ async function loadAlbums() {
   }
 }
 
+/**
+ * 変更：各アイテムに「🗑️（個別削除）」ボタンをインジェクション
+ */
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
@@ -224,6 +226,7 @@ async function loadPhotos(id, name) {
         photoItem.appendChild(a);
       }
       
+      // 右上：カバー設定ボタン
       const coverBtn = document.createElement('button');
       coverBtn.className = 'set-cover-btn';
       if (p.id === currentCoverId) coverBtn.classList.add('is-cover');
@@ -233,10 +236,57 @@ async function loadPhotos(id, name) {
         setAsCover(p.id);
       };
 
+      // 追記：左上：個別メディア削除（ゴミ箱移動）ボタン
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'delete-media-btn';
+      deleteBtn.innerHTML = '🗑️';
+      deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        deleteMedia(p.id);
+      };
+
       photoItem.appendChild(coverBtn);
+      photoItem.appendChild(deleteBtn);
       grid.appendChild(photoItem);
     });
   }
+}
+
+/**
+ * 追記：個別メディアの削除通信
+ */
+async function deleteMedia(fileId) {
+  if (!confirm('この写真・動画を削除してゴミ箱に移動しますか？')) return;
+  toggleLoading(true, "メディアを削除中...");
+  const result = await callApi('POST', { action: 'deleteFile', fileId: fileId });
+  toggleLoading(false);
+  if (result.success) {
+    loadPhotos(currentFolderId, document.getElementById('current-album-name').innerText);
+  } else {
+    alert('削除に失敗しました。');
+  }
+}
+
+/**
+ * 追記：アルバムフォルダの削除通信
+ */
+function initDeleteAlbumEvent() {
+  document.getElementById('btn-delete-album').onclick = async () => {
+    const albumName = document.getElementById('current-album-name').innerText;
+    const msg = `【⚠️重要・危険】\nアルバム「${albumName}」を完全に削除し、中の写真や動画もすべてゴミ箱へ移動します。\n\n本当によろしいですか？`;
+    if (!confirm(msg)) return;
+    
+    toggleLoading(true, "アルバム全体を削除中...");
+    const result = await callApi('POST', { action: 'deleteFolder', folderId: currentFolderId });
+    toggleLoading(false);
+    
+    if (result.success) {
+      showSection('view');
+      loadAlbums();
+    } else {
+      alert('アルバムの削除に失敗しました。');
+    }
+  };
 }
 
 function openVideoModal(videoUrl) {
