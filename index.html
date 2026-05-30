@@ -19,6 +19,7 @@
 </head>
 <body>
 
+  <!-- パスワードロック画面 -->
   <div id="lock-screen" class="lock-overlay">
     <div class="lock-card">
       <h2>🔒 家族アルバム</h2>
@@ -30,14 +31,43 @@
       </form>
       
       <div id="lock-error" class="error-text" style="display:none;">パスワードが違います</div>
+      
+      <!-- 追記：ログイン画面用のPWAインストール誘導 -->
+      <div id="pwa-install-lock" class="pwa-prompt-container" style="display:none; margin-top:25px;">
+        <hr style="border:0; border-top:1px solid #eee; margin-bottom:15px;">
+        <button id="btn-pwa-install-lock" class="btn-pwa-badge">📱 ホーム画面にアプリを追加する</button>
+      </div>
     </div>
   </div>
 
+  <!-- 追記：iOS専用 ホーム画面追加ナビゲーション用ボトムシート -->
+  <div id="ios-pwa-modal" class="ios-pwa-sheet" style="display:none;">
+    <div class="ios-pwa-content">
+      <div class="ios-pwa-header">
+        <h4>iPhoneのホーム画面に追加</h4>
+        <span id="btn-close-ios-pwa" class="ios-pwa-close">&times;</span>
+      </div>
+      <p>このアプリをホーム画面に追加すると、通常のスマホアプリと同じように全画面でサクサク快適に使えます！</p>
+      <div class="ios-instruction-steps">
+        <div class="step-item">
+          <span class="step-num">1</span>
+          <p>ブラウザ下部（iPadは上部）にある<strong>共有ボタン「 <span class="ios-icon-share">📁</span> 」</strong>（四角から矢印が飛び出しているマーク）をタップします。</p>
+        </div>
+        <div class="step-item">
+          <span class="step-num">2</span>
+          <p>メニューの中に現れる<strong>「ホーム画面に追加 <span class="ios-icon-add">➕</span> 」</strong>を選択します。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 動画再生専用全画面モーダル -->
   <div id="video-modal" class="video-modal" style="display:none;">
     <span class="video-close" id="btn-close-video">&times;</span>
     <iframe id="modal-video-frame" src="" allow="autoplay" allowfullscreen></iframe>
   </div>
 
+  <!-- 引っ張って更新用のインジケーター -->
   <div id="pull-indicator" class="pull-indicator">
     <div class="arrow-icon">↓</div>
     <div class="refresh-spinner" style="display:none;"></div>
@@ -50,6 +80,15 @@
   <main class="container" id="main-container">
     
     <section id="section-view">
+      <!-- 追記：メイン画面用のPWAインストール誘導バナー -->
+      <div id="pwa-install-banner" class="pwa-banner-card" style="display:none;">
+        <div class="pwa-banner-text">
+          <strong>📱 アプリとして使おう！</strong>
+          <p>ホーム画面に追加すると全画面でサクサク開けます</p>
+        </div>
+        <button id="btn-pwa-install-main" class="btn-pwa-action">追加</button>
+      </div>
+
       <div id="album-list"></div>
       <div class="bottom-controls">
         <button id="btn-show-create" class="btn-secondary">＋ 新しいアルバムを作成</button>
