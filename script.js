@@ -1,12 +1,13 @@
 /**
  * 家族アルバムアプリ - script.js
- * 機能: パスワードマネージャー自動保存対応 + マルチメディア削除（ゴミ箱非破壊移動）対応版
+ * 機能: パスワードマネージャー自動保存対応 + マルチOS対応PWAインストール誘導搭載版
  */
 import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
 
 const GAS_API_URL = CONFIG.GAS_API_URL;
 const ALBUM_PASSWORD = CONFIG.ALBUM_PASSWORD;
 let currentFolderId = null;
+let deferredPrompt = null; // Android用インストールプロンプト保持
 
 const lightbox = new PhotoSwipeLightbox({
   gallery: '#photo-grid',
@@ -39,8 +40,57 @@ window.onload = () => {
   }
   initPullToRefresh();
   initVideoModalEvents();
-  initDeleteAlbumEvent(); // アルバム削除イベント初期化
+  initDeleteAlbumEvent();
+  initPwaInstallEvents(); // PWA追加イベントの初期化
 };
+
+// 追記：Android/iOSごとのホーム画面追加ハンドリングロジック
+function initPwaInstallEvents() {
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+
+  // すでにホーム画面から起動されている場合は何もしない
+  if (isStandalone) return;
+
+  if (isIos) {
+    // iOS (Safari) の場合は、ボタンコンテナおよびバナーを常時可視化してボトムシートへ誘導
+    document.getElementById('pwa-install-lock').style.display = 'block';
+    document.getElementById('pwa-install-banner').style.display = 'flex';
+    
+    const openIosSheet = () => { document.getElementById('ios-pwa-modal').style.display = 'flex'; };
+    document.getElementById('btn-pwa-install-lock').onclick = openIosSheet;
+    document.getElementById('btn-pwa-install-main').onclick = openIosSheet;
+    
+    // iOS用ボトムシートを閉じるイベント
+    document.getElementById('btn-close-ios-pwa').onclick = () => { document.getElementById('ios-pwa-modal').style.display = 'none'; };
+    document.getElementById('ios-pwa-modal').onclick = (e) => { if(e.target.id === 'ios-pwa-modal') document.getElementById('ios-pwa-modal').style.display = 'none'; };
+  } else {
+    // Android (Chromeなど) の場合：ブラウザのインストール準備完了イベントをキャッチ
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e; // プロンプトを保持
+      
+      // ボタン群を表示させる
+      document.getElementById('pwa-install-lock').style.display = 'block';
+      document.getElementById('pwa-install-banner').style.display = 'flex';
+    });
+
+    const triggerAndroidInstall = async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt(); // 純正ダイアログを表示
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        // インストールされたらボタンを隠す
+        document.getElementById('pwa-install-lock').style.display = 'none';
+        document.getElementById('pwa-install-banner').style.display = 'none';
+      }
+      deferredPrompt = null;
+    };
+
+    document.getElementById('btn-pwa-install-lock').onclick = triggerAndroidInstall;
+    document.getElementById('btn-pwa-install-main').onclick = triggerAndroidInstall;
+  }
+}
 
 document.getElementById('login-form').onsubmit = (e) => {
   e.preventDefault();
@@ -155,9 +205,6 @@ async function loadAlbums() {
   }
 }
 
-/**
- * 変更：各アイテムに「🗑️（個別削除）」ボタンをインジェクション
- */
 async function loadPhotos(id, name) {
   currentFolderId = id;
   showSection('photos');
@@ -226,7 +273,6 @@ async function loadPhotos(id, name) {
         photoItem.appendChild(a);
       }
       
-      // 右上：カバー設定ボタン
       const coverBtn = document.createElement('button');
       coverBtn.className = 'set-cover-btn';
       if (p.id === currentCoverId) coverBtn.classList.add('is-cover');
@@ -236,7 +282,6 @@ async function loadPhotos(id, name) {
         setAsCover(p.id);
       };
 
-      // 追記：左上：個別メディア削除（ゴミ箱移動）ボタン
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'delete-media-btn';
       deleteBtn.innerHTML = '🗑️';
@@ -252,9 +297,6 @@ async function loadPhotos(id, name) {
   }
 }
 
-/**
- * 追記：個別メディアの削除通信
- */
 async function deleteMedia(fileId) {
   if (!confirm('この写真・動画を削除してゴミ箱に移動しますか？')) return;
   toggleLoading(true, "メディアを削除中...");
@@ -267,9 +309,6 @@ async function deleteMedia(fileId) {
   }
 }
 
-/**
- * 追記：アルバムフォルダの削除通信
- */
 function initDeleteAlbumEvent() {
   document.getElementById('btn-delete-album').onclick = async () => {
     const albumName = document.getElementById('current-album-name').innerText;
